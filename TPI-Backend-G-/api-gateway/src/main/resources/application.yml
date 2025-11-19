@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      routes:
+
+        - id: servicio-solicitud
+          uri: http://servicio-solicitud:8082
+          predicates:
+            - Path=/solicitudes/**
+
+        - id: servicio-transporte
+          uri: http://servicio-transporte:8083
+          predicates:
+            - Path=/transporte/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    gateway:
+      enabled: true
+
