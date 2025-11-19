@@ -16,26 +16,27 @@ public class GWConfig {
             //      MICROSERVICIO SOLICITUD (context-path: /api/solicitud)
             // ============================================================
             .route("servicio-solicitud", r -> r
-                .path("/solicitudes/**")
-                .filters(f -> f.stripPrefix(1))
-                .uri("http://servicio-solicitud:8082/solicitudes"))
+                .path("/solicitudes/**", "/contenedores/**")
+                .uri("http://servicio-solicitud:8082"))
 
 
             // ============================================================
-            //      MICROSERVICIO TRANSPORTE (sin context-path)
+            //      MICROSERVICIO TRANSPORTE 
             // ============================================================
 
-            // ----- Camiones -----
-            .route("servicio-transporte-camiones", r -> r
-                .path("/camiones/**")
-                .filters(f -> f.stripPrefix(1))
-                .uri("http://servicio-transporte:8083/transporte/camiones"))
 
-            // ----- Transportistas -----
-            .route("servicio-transporte-transportistas", r -> r
-                .path("/transportistas/**")
-                .filters(f -> f.stripPrefix(1))
-                .uri("http://servicio-transporte:8083/transporte/transportistas"))
+            .route("servicio-transporte", r -> r
+                .path("/transporte/**")
+                .uri("http://servicio-transporte:8083"))
+
+ 
+            // ============================================================
+            //      MICROSERVICIO logistica (sin context-path)
+            // ============================================================
+
+            .route("servicio-logistica", r -> r
+                .path("/api/logistica/**")
+                .uri("http://servicio-logistica:8084"))
 
             .build();
     }
