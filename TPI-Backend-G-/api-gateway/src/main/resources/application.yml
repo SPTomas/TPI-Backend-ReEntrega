@@ -45,3 +45,12 @@ spring:
           filters:
             # Quitamos "/api/solicitudes" (2 partes) para que al servicio le llegue "/" (la raíz)
             - StripPrefix=2
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # URL interna de Docker para que el Gateway descargue las claves públicas
+          # IMPORTANTE: Asegúrate de que coincida con el nombre de tu servicio en docker-compose
+          jwk-set-uri: http://keycloak:8080/realms/tpi-backend/protocol/openid-connect/certs
+          # Opcional: ayuda a validar que el token vino de quien esperas
+          # issuer-uri: http://localhost:8081/realms/TPI-Realm
