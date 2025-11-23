@@ -131,12 +131,12 @@ public ResponseEntity<Tramo> cambiarEstadoTramo(
 
 
     @GetMapping("/rutas/solicitud/{idSolicitud}")
-@Operation(summary = "Obtiene la ruta asociada a una solicitud", description = "Rol: OPERADOR")
-public ResponseEntity<Ruta> obtenerRutaPorIdSolicitud(@PathVariable Long idSolicitud) {
-    return rutaRepository.findByIdSolicitud(idSolicitud)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
-}
+    @Operation(summary = "Obtiene la ruta asociada a una solicitud", description = "Rol: OPERADOR")
+    public ResponseEntity<Ruta> obtenerRutaPorIdSolicitud(@PathVariable Long idSolicitud) {
+        return rutaRepository.findByIdSolicitud(idSolicitud)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 
 
     

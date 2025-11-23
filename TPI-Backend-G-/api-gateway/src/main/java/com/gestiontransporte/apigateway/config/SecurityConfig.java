@@ -19,10 +19,16 @@ public class SecurityConfig {
             
             // Configurar las reglas de autorización
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/transporte/transportistas/**").hasRole("admin")
-                .pathMatchers("/transporte/camiones/**").hasRole("admin")
+                .pathMatchers("/transporte/transportistas/**").hasRole("ADMIN")
+                .pathMatchers("/transporte/camiones/**").hasRole("ADMIN")
+                
+                .pathMatchers(HttpMethod.GET, "/precios/**").hasRole("ADMIN")
+                .pathMatchers(HttpMethod.PUT, "/precios/**").hasRole("ADMIN")
 
-                .pathMatchers(HttpMethod.POST, "/solicitudes/**").hasRole("cliente")
+
+                .pathMatchers(HttpMethod.POST, "/solicitudes/**").hasRole("CLIENTE")
+
+                .pathMatchers("/api/logistica/**").hasRole("ADMIN")
 
                 .anyExchange().authenticated()
             )
