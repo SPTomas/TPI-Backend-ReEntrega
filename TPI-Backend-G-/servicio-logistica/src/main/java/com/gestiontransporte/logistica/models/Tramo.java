@@ -33,8 +33,14 @@ public class Tramo {
 
     private String tipo; // (origen-deposito, deposito-deposito, deposito-destino)
     
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "estado")
-    private String estado = "SIN_EMPEZAR";
+    private EstadoTramo estado = EstadoTramo.ESTIMADO;
+    //@Column(name = "estado") //lo cambie porque encontre en internet y le pregutne a l chat 
+    // cuestion que e nteoria el enum sirve para que la variable pueda solo aceptar esos valores y nos ahorramos probles
+    //tanto de consistencia entre los microservicios y mantenibilidad 
+    // private String estado = "SIN_EMPEZAR";
 
       /**
      * Valores esperados (ejemplo): SIN_EMPEZAR" - "EN_TRASLADO" - "FINALIZADO"

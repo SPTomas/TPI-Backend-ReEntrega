@@ -113,7 +113,7 @@ public Solicitud crearSolicitud(SolicitudRequestDTO solicitudDTO) {
     Solicitud solicitudNueva = new Solicitud();
     solicitudNueva.setIdCliente(idCliente);
     solicitudNueva.setIdContenedor(contenedorGuardado.getIdContenedor());
-    solicitudNueva.setEstado("PENDIENTE");
+    solicitudNueva.setEstado("CREADA");
 
     solicitudNueva.setCostoEstimado(solicitudDTO.getCostoEstimado());
 
@@ -225,7 +225,7 @@ public Optional<Solicitud> actualizarParcial(Long numero, java.util.Map<String, 
             .map(solicitudActual -> {
                 
 
-                solicitudActual.setEstado("CANCELADO");
+                solicitudActual.setEstado("CANCELADA");
                 return solicitudRepository.save(solicitudActual);
                 
             });
@@ -359,14 +359,14 @@ private void sincronizarEstadoContenedorConSolicitud(Solicitud solicitud) {
     String estadoContenedor;
 
     switch (estadoSolicitud) {
-        case "PENDIENTE":
-            estadoContenedor = "PENDIENTE_RETIRO";
+        case "CREADA":
+            estadoContenedor = "PENDIENTE_ENTREGA";
             break;
         case "EN_TRANSITO":
             estadoContenedor = "EN_VIAJE";
             break;
         case "COMPLETADA":
-            estadoContenedor = "ENTREGADO";
+            estadoContenedor = "ENTREGADO_EN_DESTINO";
             break;
         case "CANCELADO":
             estadoContenedor = "CANCELADO";

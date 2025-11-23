@@ -2,14 +2,22 @@ package com.gestiontransporte.logistica.repositories;
 
 import com.gestiontransporte.logistica.models.Ruta;
 import com.gestiontransporte.logistica.models.Tramo;
+import com.gestiontransporte.logistica.models.EstadoTramo;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
-
-import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TramoRepository extends JpaRepository<Tramo, Long> {
 
     void deleteByRuta(Ruta ruta);
 
     List<Tramo> findByRutaOrderByIdTramoAsc(Ruta ruta);
+
+    // Nuevo: para tramos por camión
+    List<Tramo> findByPatenteCamion(String patenteCamion);
+
+    List<Tramo> findByPatenteCamionAndEstado(String patenteCamion, EstadoTramo estado);
+
+    // Nuevo: tramos pendientes (sin camión asignado)
+    List<Tramo> findByEstadoAndPatenteCamionIsNull(EstadoTramo estado);
 }

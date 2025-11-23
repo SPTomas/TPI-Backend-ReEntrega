@@ -54,7 +54,7 @@ public class ContenedorService {
         }
         
         // Asignamos un estado inicial para el seguimiento
-        contenedor.setEstado("PENDIENTE_RETIRO");
+        contenedor.setEstado("PENDIENTE_ENTREGA");
         
         return contenedorRepository.save(contenedor);
     }
@@ -79,7 +79,7 @@ public class ContenedorService {
     /**
      * Actualiza el estado de un contenedor (para el seguimiento).
      * @param idContenedor El ID del contenedor a actualizar.
-     * @param nuevoEstado El nuevo estado (ej. "EN_VIAJE", "EN_DEPOSITO", "ENTREGADO").
+     * @param nuevoEstado El nuevo estado (ej. "EN_VIAJE", "EN_DEPOSITO", "ENTREGADO_EN_DESTINO").
      * @return El contenedor actualizado, o vacío si no se encontró.
      */
     public Optional<Contenedor> actualizarEstado(Long idContenedor, String nuevoEstado) {
@@ -104,7 +104,7 @@ public class ContenedorService {
     public List<ContenedorPendienteDTO> buscarPendientes(Long idClienteFiltro, String estadoFiltro) {
 
         // Estados considerados "pendientes de entrega"
-        List<String> estadosPendientes = List.of("PENDIENTE_RETIRO", "EN_VIAJE", "EN_DEPOSITO");
+        List<String> estadosPendientes = List.of("PENDIENTE_ENTREGA", "EN_VIAJE", "EN_DEPOSITO");
 
         List<Contenedor> contenedores;
 

@@ -4,10 +4,12 @@ import com.gestiontransporte.logistica.dto.AsignarCamionRequestDTO;
 import com.gestiontransporte.logistica.dto.CambiarEstadoTramoRequestDTO;
 import com.gestiontransporte.logistica.dto.CrearRutaRequestDTO;
 import com.gestiontransporte.logistica.models.Deposito;
+import com.gestiontransporte.logistica.models.EstadoTramo;
 import com.gestiontransporte.logistica.models.Ruta;
 import com.gestiontransporte.logistica.models.Tramo;
 import com.gestiontransporte.logistica.repositories.DepositoRepository; // Rápido para CRUD
 import com.gestiontransporte.logistica.repositories.RutaRepository;
+import com.gestiontransporte.logistica.repositories.TramoRepository;
 import com.gestiontransporte.logistica.services.LogisticaService;
 import com.gestiontransporte.logistica.dto.RutaAlternativaDTO;
 import com.gestiontransporte.logistica.dto.RutasAlternativasRequestDTO;
@@ -30,12 +32,17 @@ public class LogisticaController {
     private final LogisticaService logisticaService;
     private final DepositoRepository depositoRepository; // Para el CRUD simple de Depósitos
     private final RutaRepository rutaRepository;
+private final TramoRepository tramoRepository;
 
-    public LogisticaController(LogisticaService logisticaService, DepositoRepository depositoRepository, RutaRepository rutaRepository) {
-        this.logisticaService = logisticaService;
-        this.depositoRepository = depositoRepository;
-        this.rutaRepository = rutaRepository;
-    }
+public LogisticaController(LogisticaService logisticaService,
+                           DepositoRepository depositoRepository,
+                           RutaRepository rutaRepository,
+                           TramoRepository tramoRepository) {
+    this.logisticaService = logisticaService;
+    this.depositoRepository = depositoRepository;
+    this.rutaRepository = rutaRepository;
+    this.tramoRepository = tramoRepository;
+}
 
     // --- Endpoints de Rutas y Tramos (Lógica Compleja) ---
 
@@ -138,6 +145,73 @@ public ResponseEntity<Tramo> cambiarEstadoTramo(
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/tramos/{idTramo}")
+    @Operation(summary = "Obtiene un tramo por ID", description = "Rol: OPERADOR / TRANSPORTISTA")
+    public ResponseEntity<Tramo> obtenerTramoPorId(@PathVariable Long idTramo) {
+        return tramoRepository.findById(idTramo)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 
-    
+    @GetMapping("/tramos/por-camion")
+    @Operation(
+        summary = "Lista los tramos de un camión",
+        description = "Filtra por patente y opcionalmente por estado"
+    )
+    public ResponseEntity<List<Tramo>> tramosPorCamion(
+            @RequestParam String patente,
+            @RequestParam(required = false) String estado
+    ) {
+        List<Tramo> tramos;
+
+        if (estado != null && !estado.isBlank()) {
+            EstadoTramo estadoTramo;
+            try {
+                estadoTramo = EstadoTramo.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().build();
+            }
+            tramos = tramoRepository.findByPatenteCamionAndEstado(patente, estadoTramo);
+        } else {
+            tramos = tramoRepository.findByPatenteCamion(patente);
+        }
+
+        return ResponseEntity.ok(tramos);
+    }
+
+    @GetMapping("/tramos/pendientes")
+    @Operation(
+        summary = "Lista los tramos pendientes de asignar camión",
+        description = "Tramos en estado ESTIMADO y sin camión asignado"
+    )
+    public ResponseEntity<List<Tramo>> tramosPendientes() {
+        List<Tramo> tramos = tramoRepository
+                .findByEstadoAndPatenteCamionIsNull(EstadoTramo.ESTIMADO);
+
+        return ResponseEntity.ok(tramos);
+    }
+
+    @GetMapping("/depositos/{idDeposito}/tramos-finalizados")
+    @Operation(
+        summary = "Lista tramos que finalizaron en un depósito",
+        description = "Sirve como base para ver qué contenedores están en un depósito"
+    )
+    public ResponseEntity<List<Tramo>> tramosFinalizadosEnDeposito(@PathVariable Long idDeposito) {
+        List<Tramo> tramos = tramoRepository.findAll().stream()
+                .filter(t -> t.getDepositoDestino() != null
+                        && t.getDepositoDestino().getIdDeposito().equals(idDeposito)
+                        && t.getEstado() == EstadoTramo.FINALIZADO)
+                .toList();
+
+        return ResponseEntity.ok(tramos);
+    }
+
+    //     @PatchMapping("/tramos/{id}/finalizar")
+    // public ResponseEntity<Tramo> finalizarTramo(
+    //         @PathVariable Long id,
+    //         @RequestBody FinalizarTramoDTO request
+    // ) {
+    //     Tramo tramo = tramoService.finalizarTramo(id, request);
+    //     return ResponseEntity.ok(tramo);
+    // }
 }
