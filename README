@@ -5,3 +5,6 @@ cd ../servicio-logistica ; mvn clean package -DskipTests ;
 cd ../servicio-transporte ; mvn clean package -DskipTests ; 
 cd ..\api-gateway\ ;  mvn clean package -DskipTests ;
 cd .. ; docker-compose up --build
+
+
+que crack el loco este che
