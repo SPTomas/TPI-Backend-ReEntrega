@@ -19,6 +19,12 @@ public class SecurityConfig {
             
             // Configurar las reglas de autorización
             .authorizeExchange(exchanges -> exchanges
+
+                // ATENTO ESTO LO ESCRIBIO UN SER HUMANO PENSANTE
+                // AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH
+                // grito para que prestes atencion
+                // el hasRole SIEMPRE en mayusculas mismo nombre que el keycloak pero en mayusculas
+                 
                 .pathMatchers("/transporte/transportistas/**").hasRole("ADMIN")
                 .pathMatchers("/transporte/camiones/**").hasRole("ADMIN")
                 
