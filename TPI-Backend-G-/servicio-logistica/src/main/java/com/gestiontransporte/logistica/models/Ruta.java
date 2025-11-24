@@ -20,15 +20,13 @@ public class Ruta {
     @Column(name = "id_solicitud", nullable = false, unique = true) // Una ruta por solicitud
     private Long idSolicitud;
 
-    @Column(name = "latitud_origen")
-    private BigDecimal latitudOrigen;
-    @Column(name = "longitud_origen")
-    private BigDecimal longitudOrigen;
-    @Column(name = "latitud_destino")
-    private BigDecimal latitudDestino;
-    @Column(name = "longitud_destino")
-    private BigDecimal longitudDestino;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_origen")
+    private Localizacion origen;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_destino")
+    private Localizacion destino;
     @Column(name = "cantidad_tramos")
     private Integer cantidadTramos;
     @Column(name = "cantidad_depositos")

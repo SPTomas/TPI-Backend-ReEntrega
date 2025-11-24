@@ -1,25 +1,27 @@
 package com.gestiontransporte.solicitud.services;
 
-import com.gestiontransporte.solicitud.models.Solicitud;
-import com.gestiontransporte.solicitud.models.SolicitudRequestDTO;
-import com.gestiontransporte.solicitud.models.TramoSeguimientoDTO;
 import com.gestiontransporte.solicitud.repositories.SolicitudRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.http.*;
-import com.gestiontransporte.solicitud.models.Contenedor; // <-- Importa Contenedor
+
 import com.gestiontransporte.solicitud.services.ContenedorService; // <-- Importa el servicio
-import com.gestiontransporte.solicitud.models.FinalizarSolicitudDTO;
-import com.gestiontransporte.solicitud.models.RutaLogisticaDTO;
-import com.gestiontransporte.solicitud.models.SeguimientoSolicitudDTO;
-import com.gestiontransporte.solicitud.models.RutaLogisticaDTO;
-import com.gestiontransporte.solicitud.models.TramoLogisticaDTO;
-import com.gestiontransporte.solicitud.models.DepositoLogisticaDTO;
-import com.gestiontransporte.solicitud.models.TramoSeguimientoDTO;
-import com.gestiontransporte.solicitud.models.SeguimientoSolicitudDTO;
-import com.gestiontransporte.solicitud.models.Cliente; // <-- Importa Contenedor
 import com.gestiontransporte.solicitud.services.ClienteService; // <-- Importa el servicio
+// <-- Importa Contenedor
+// <-- Importa Contenedor
+import com.gestiontransporte.solicitud.models.*;
+import com.gestiontransporte.solicitud.repositories.SolicitudRepository;
+import com.gestiontransporte.solicitud.repositories.LocalizacionRepository;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.http.*;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+
 
 import org.springframework.web.client.RestTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,28 +30,27 @@ import java.util.stream.Collectors;
 
 @Service
 public class SolicitudService {
-                       
 
     private final SolicitudRepository solicitudRepository;
-    private final ContenedorService contenedorService; // <-- 1. Inyéctalo
-    private final RestTemplate restTemplate;   // 👈 NUEVO
-    private final ClienteService clienteService;   // 👈 NUEVO
+    private final ContenedorService contenedorService;
+    private final RestTemplate restTemplate;
+    private final ClienteService clienteService;
+    private final LocalizacionRepository localizacionRepository;   // 🔹 NUEVO
 
     @Value("${api.servicios.logistica}")
-    private String logisticaBaseUrl;  
-    
-
+    private String logisticaBaseUrl;
 
     public SolicitudService(SolicitudRepository solicitudRepository,
-                        ContenedorService contenedorService,
-                        RestTemplate restTemplate,
-                        ClienteService clienteService) {
-    this.solicitudRepository = solicitudRepository;
-    this.contenedorService = contenedorService;
-    this.restTemplate = restTemplate;   // 👈 guardamos el cliente HTTP
-    this.clienteService = clienteService;
-
-}
+                            ContenedorService contenedorService,
+                            RestTemplate restTemplate,
+                            ClienteService clienteService,
+                            LocalizacionRepository localizacionRepository) {
+        this.solicitudRepository = solicitudRepository;
+        this.contenedorService = contenedorService;
+        this.restTemplate = restTemplate;
+        this.clienteService = clienteService;
+        this.localizacionRepository = localizacionRepository;   // 🔹
+    }
     /**
      * Busca una solicitud por su número (ID).
      * @param numero El ID de la solicitud.
@@ -69,56 +70,70 @@ public class SolicitudService {
         return solicitudRepository.findAll();
     }
 
+    public Solicitud crearSolicitud(SolicitudRequestDTO solicitudDTO) {
 
-public Solicitud crearSolicitud(SolicitudRequestDTO solicitudDTO) {
+        // 1) Validar datos mínimos contenedor
+        if (solicitudDTO.getPesoContenedor() == null || solicitudDTO.getVolumenContenedor() == null) {
+            throw new IllegalArgumentException("pesoContenedor y volumenContenedor son obligatorios.");
+        }
 
-    // 1) Validar datos mínimos
-    if (solicitudDTO.getPesoContenedor() == null || solicitudDTO.getVolumenContenedor() == null) {
-        throw new IllegalArgumentException("pesoContenedor y volumenContenedor son obligatorios.");
+        // 2) Validar origen / destino
+        if (solicitudDTO.getOrigen() == null || solicitudDTO.getDestino() == null) {
+            throw new IllegalArgumentException("Debe enviar origen y destino.");
+        }
+
+        // 3) Resolver / registrar Cliente
+        Long idCliente;
+        if (solicitudDTO.getIdCliente() != null) {
+            idCliente = clienteService.buscarPorId(solicitudDTO.getIdCliente())
+                    .map(Cliente::getIdCliente)
+                    .orElseThrow(() ->
+                            new IllegalArgumentException("No existe cliente con id " + solicitudDTO.getIdCliente()));
+        } else {
+            var cliente = clienteService.obtenerOCrearPorEmail(
+                    solicitudDTO.getEmailCliente(),
+                    solicitudDTO.getNombreCliente(),
+                    solicitudDTO.getTelefonoCliente()
+            );
+            idCliente = cliente.getIdCliente();
+        }
+
+        // 4) Crear el Contenedor asociado
+        Contenedor contenedorNuevo = new Contenedor();
+        contenedorNuevo.setIdCliente(idCliente);
+        contenedorNuevo.setPeso(solicitudDTO.getPesoContenedor());
+        contenedorNuevo.setVolumen(solicitudDTO.getVolumenContenedor());
+
+        Contenedor contenedorGuardado = contenedorService.crearContenedor(contenedorNuevo);
+
+        // 5) Crear Localizacion ORIGEN
+        Localizacion origen = new Localizacion();
+        origen.setLatitud(solicitudDTO.getOrigen().getLatitud());
+        origen.setLongitud(solicitudDTO.getOrigen().getLongitud());
+        origen.setDescripcion(solicitudDTO.getOrigen().getDescripcion());
+        origen = localizacionRepository.save(origen);
+
+        // 6) Crear Localizacion DESTINO
+        Localizacion destino = new Localizacion();
+        destino.setLatitud(solicitudDTO.getDestino().getLatitud());
+        destino.setLongitud(solicitudDTO.getDestino().getLongitud());
+        destino.setDescripcion(solicitudDTO.getDestino().getDescripcion());
+        destino = localizacionRepository.save(destino);
+
+        // 7) Crear la Solicitud
+        Solicitud solicitudNueva = new Solicitud();
+        solicitudNueva.setIdCliente(idCliente);
+        solicitudNueva.setIdContenedor(contenedorGuardado.getIdContenedor());
+        solicitudNueva.setEstado("CREADA");
+        solicitudNueva.setCostoEstimado(solicitudDTO.getCostoEstimado());
+        solicitudNueva.setTiempoEstimado(solicitudDTO.getTiempoEstimado());
+
+        // 🔹 Vincular origen y destino
+        solicitudNueva.setOrigen(origen);
+        solicitudNueva.setDestino(destino);
+
+        return solicitudRepository.save(solicitudNueva);
     }
-
-    // O bien viene idCliente, o bien nombre+email
-    if (solicitudDTO.getIdCliente() == null &&
-            (solicitudDTO.getEmailCliente() == null || solicitudDTO.getNombreCliente() == null)) {
-        throw new IllegalArgumentException("Debe enviar idCliente o bien nombreCliente + emailCliente.");
-    }
-
-    // 2) Resolver / registrar Cliente
-    Long idCliente;
-    if (solicitudDTO.getIdCliente() != null) {
-        // Buscar cliente ya registrado
-        idCliente = clienteService.buscarPorId(solicitudDTO.getIdCliente())
-                .map(c -> c.getIdCliente())
-                .orElseThrow(() ->
-                        new IllegalArgumentException("No existe cliente con id " + solicitudDTO.getIdCliente()));
-    } else {
-        // Registrar (o reutilizar) cliente por email
-        var cliente = clienteService.obtenerOCrearPorEmail(
-                solicitudDTO.getEmailCliente(),
-                solicitudDTO.getNombreCliente(),
-                solicitudDTO.getTelefonoCliente()
-        );
-        idCliente = cliente.getIdCliente();
-    }
-
-    // 3) Crear el Contenedor asociado
-    Contenedor contenedorNuevo = new Contenedor();
-    contenedorNuevo.setIdCliente(idCliente);
-    contenedorNuevo.setPeso(solicitudDTO.getPesoContenedor());
-    contenedorNuevo.setVolumen(solicitudDTO.getVolumenContenedor());
-
-    Contenedor contenedorGuardado = contenedorService.crearContenedor(contenedorNuevo);
-
-    // 4) Crear la Solicitud
-    Solicitud solicitudNueva = new Solicitud();
-    solicitudNueva.setIdCliente(idCliente);
-    solicitudNueva.setIdContenedor(contenedorGuardado.getIdContenedor());
-    solicitudNueva.setEstado("CREADA");
-
-    solicitudNueva.setCostoEstimado(solicitudDTO.getCostoEstimado());
-
-    return solicitudRepository.save(solicitudNueva);
-}
 
     /**
      * MODIFICADO: Vuelve a ser un "Hard Delete".
