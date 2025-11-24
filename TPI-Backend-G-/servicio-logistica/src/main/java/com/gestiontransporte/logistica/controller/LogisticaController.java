@@ -46,14 +46,14 @@ public LogisticaController(LogisticaService logisticaService,
 
  
 
-    @PostMapping("/rutas/calcular")
-    @Operation(summary = "Calcula y crea una ruta para una solicitud", description = "Rol: OPERADOR")
-    // @PreAuthorize("hasRole('OPERADOR')")
-    public ResponseEntity<Ruta> calcularRuta(@RequestBody CrearRutaRequestDTO request) {
-        System.out.println(">>> LLEGÓ A /rutas/calcular: " + request);
-        Ruta nuevaRuta = logisticaService.crearRutaParaSolicitud(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuevaRuta);
-}
+//     @PostMapping("/rutas/calcular")
+//     @Operation(summary = "Calcula y crea una ruta para una solicitud", description = "Rol: OPERADOR")
+//     // @PreAuthorize("hasRole('OPERADOR')")
+//     public ResponseEntity<Ruta> calcularRuta(@RequestBody CrearRutaRequestDTO request) {
+//         System.out.println(">>> LLEGÓ A /rutas/calcular: " + request);
+//         Ruta nuevaRuta = logisticaService.crearRutaParaSolicitud(request);
+//         return ResponseEntity.status(HttpStatus.CREATED).body(nuevaRuta);
+// }
 
 
     @PostMapping("/solicitudes/{idSolicitud}/asignar-ruta")
@@ -94,18 +94,26 @@ public LogisticaController(LogisticaService logisticaService,
         return ResponseEntity.ok(tramoActualizado);
     }
 
-@PatchMapping("/tramos/{idTramo}/estado")
-public ResponseEntity<Tramo> cambiarEstadoTramo(
-        @PathVariable Long idTramo,
-        @RequestBody CambiarEstadoTramoRequestDTO request
-) {
-    Tramo tramoActualizado = logisticaService.cambiarEstadoTramo(
-            idTramo,
-            request.getNuevoEstado(),
-            request.getCostoReal()  // ahora también pasa el costo real
-    );
-    return ResponseEntity.ok(tramoActualizado);
-}
+    @PatchMapping("/tramos/{idTramo}/estado")
+    public ResponseEntity<Tramo> cambiarEstadoTramo(
+            @PathVariable Long idTramo,
+            @RequestBody CambiarEstadoTramoRequestDTO request
+    ) {
+        Tramo tramoActualizado = logisticaService.cambiarEstadoTramo(
+                idTramo,
+                request.getNuevoEstado(),
+                request.getCostoReal()  // ahora también pasa el costo real
+        );
+        return ResponseEntity.ok(tramoActualizado);
+    }
+
+
+    @GetMapping("/tramos")
+    @Operation(summary = "Lista todos los tramos", description = "Rol: OPERADOR")
+    public ResponseEntity<List<Tramo>> listarTramos() {
+        List<Tramo> tramos = tramoRepository.findAll();
+        return ResponseEntity.ok(tramos);
+    }
 
     // --- Endpoints de Depósitos (CRUD Simple - Req. Func. 10) ---
 
@@ -128,9 +136,9 @@ public ResponseEntity<Tramo> cambiarEstadoTramo(
 
     @GetMapping("/rutas")
     @Operation(summary = "Lista todas las rutas", description = "Rol: OPERADOR")
-    // @PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<List<Ruta>> listarRutas() {
-        return ResponseEntity.ok(rutaRepository.findAll());
+        List<Ruta> rutas = rutaRepository.findAll();
+        return ResponseEntity.ok(rutas);
     }
 
     @GetMapping("/rutas/{idRuta}")

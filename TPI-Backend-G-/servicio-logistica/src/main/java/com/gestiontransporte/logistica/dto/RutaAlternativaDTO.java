@@ -11,6 +11,7 @@ public class RutaAlternativaDTO {
     private int cantidadTramos;
     private int cantidadDepositos;
     private List<String> descripcionTramos;
+    private List<TramoAlternativoDTO> tramos;     // ← NUEVO
 
     public String getNombre() {
         return nombre;
@@ -59,4 +60,13 @@ public class RutaAlternativaDTO {
     public void setDescripcionTramos(List<String> descripcionTramos) {
         this.descripcionTramos = descripcionTramos;
     }
+
+        public List<TramoAlternativoDTO> getTramos() {
+        return tramos;
+    }
+
+    public void setTramos(List<TramoAlternativoDTO> tramos) {
+        this.tramos = tramos;
+    }
 }
+

@@ -6,10 +6,8 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.http.*;
 
-import com.gestiontransporte.solicitud.services.ContenedorService; // <-- Importa el servicio
-import com.gestiontransporte.solicitud.services.ClienteService; // <-- Importa el servicio
-// <-- Importa Contenedor
-// <-- Importa Contenedor
+import com.gestiontransporte.solicitud.services.ContenedorService; 
+import com.gestiontransporte.solicitud.services.ClienteService;
 import com.gestiontransporte.solicitud.models.*;
 import com.gestiontransporte.solicitud.repositories.SolicitudRepository;
 import com.gestiontransporte.solicitud.repositories.LocalizacionRepository;
@@ -70,70 +68,59 @@ public class SolicitudService {
         return solicitudRepository.findAll();
     }
 
-    public Solicitud crearSolicitud(SolicitudRequestDTO solicitudDTO) {
+   public Solicitud crearSolicitud(SolicitudRequestDTO solicitudDTO) {
 
-        // 1) Validar datos mínimos contenedor
-        if (solicitudDTO.getPesoContenedor() == null || solicitudDTO.getVolumenContenedor() == null) {
-            throw new IllegalArgumentException("pesoContenedor y volumenContenedor son obligatorios.");
-        }
-
-        // 2) Validar origen / destino
-        if (solicitudDTO.getOrigen() == null || solicitudDTO.getDestino() == null) {
-            throw new IllegalArgumentException("Debe enviar origen y destino.");
-        }
-
-        // 3) Resolver / registrar Cliente
-        Long idCliente;
-        if (solicitudDTO.getIdCliente() != null) {
-            idCliente = clienteService.buscarPorId(solicitudDTO.getIdCliente())
-                    .map(Cliente::getIdCliente)
-                    .orElseThrow(() ->
-                            new IllegalArgumentException("No existe cliente con id " + solicitudDTO.getIdCliente()));
-        } else {
-            var cliente = clienteService.obtenerOCrearPorEmail(
-                    solicitudDTO.getEmailCliente(),
-                    solicitudDTO.getNombreCliente(),
-                    solicitudDTO.getTelefonoCliente()
-            );
-            idCliente = cliente.getIdCliente();
-        }
-
-        // 4) Crear el Contenedor asociado
-        Contenedor contenedorNuevo = new Contenedor();
-        contenedorNuevo.setIdCliente(idCliente);
-        contenedorNuevo.setPeso(solicitudDTO.getPesoContenedor());
-        contenedorNuevo.setVolumen(solicitudDTO.getVolumenContenedor());
-
-        Contenedor contenedorGuardado = contenedorService.crearContenedor(contenedorNuevo);
-
-        // 5) Crear Localizacion ORIGEN
-        Localizacion origen = new Localizacion();
-        origen.setLatitud(solicitudDTO.getOrigen().getLatitud());
-        origen.setLongitud(solicitudDTO.getOrigen().getLongitud());
-        origen.setDescripcion(solicitudDTO.getOrigen().getDescripcion());
-        origen = localizacionRepository.save(origen);
-
-        // 6) Crear Localizacion DESTINO
-        Localizacion destino = new Localizacion();
-        destino.setLatitud(solicitudDTO.getDestino().getLatitud());
-        destino.setLongitud(solicitudDTO.getDestino().getLongitud());
-        destino.setDescripcion(solicitudDTO.getDestino().getDescripcion());
-        destino = localizacionRepository.save(destino);
-
-        // 7) Crear la Solicitud
-        Solicitud solicitudNueva = new Solicitud();
-        solicitudNueva.setIdCliente(idCliente);
-        solicitudNueva.setIdContenedor(contenedorGuardado.getIdContenedor());
-        solicitudNueva.setEstado("CREADA");
-        solicitudNueva.setCostoEstimado(solicitudDTO.getCostoEstimado());
-        solicitudNueva.setTiempoEstimado(solicitudDTO.getTiempoEstimado());
-
-        // 🔹 Vincular origen y destino
-        solicitudNueva.setOrigen(origen);
-        solicitudNueva.setDestino(destino);
-
-        return solicitudRepository.save(solicitudNueva);
+    // 1) Validar contenedor
+    if (solicitudDTO.getPesoContenedor() == null || solicitudDTO.getVolumenContenedor() == null) {
+        throw new IllegalArgumentException("pesoContenedor y volumenContenedor son obligatorios.");
     }
+
+    // 2) Validar origen / destino
+    if (solicitudDTO.getOrigen() == null || solicitudDTO.getDestino() == null) {
+        throw new IllegalArgumentException("Debe enviar origen y destino.");
+    }
+
+    // 3) Resolver Cliente
+    Long idCliente;
+    if (solicitudDTO.getIdCliente() != null) {
+        idCliente = clienteService.buscarPorId(solicitudDTO.getIdCliente())
+                .map(Cliente::getIdCliente)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("No existe cliente con id " + solicitudDTO.getIdCliente()));
+    } else {
+        var cliente = clienteService.obtenerOCrearPorEmail(
+                solicitudDTO.getEmailCliente(),
+                solicitudDTO.getNombreCliente(),
+                solicitudDTO.getTelefonoCliente()
+        );
+        idCliente = cliente.getIdCliente();
+    }
+
+    // 4) Crear Contenedor
+    Contenedor contenedorNuevo = new Contenedor();
+    contenedorNuevo.setIdCliente(idCliente);
+    contenedorNuevo.setPeso(solicitudDTO.getPesoContenedor());
+    contenedorNuevo.setVolumen(solicitudDTO.getVolumenContenedor());
+
+    Contenedor contenedorGuardado = contenedorService.crearContenedor(contenedorNuevo);
+
+    // 5) Crear o Reusar Localización ORIGEN y DESTINO
+    Localizacion origen = obtenerOCrearLocalizacion(solicitudDTO.getOrigen());
+    Localizacion destino = obtenerOCrearLocalizacion(solicitudDTO.getDestino());
+
+    // 6) Crear Solicitud
+    Solicitud solicitudNueva = new Solicitud();
+    solicitudNueva.setIdCliente(idCliente);
+    solicitudNueva.setIdContenedor(contenedorGuardado.getIdContenedor());
+    solicitudNueva.setEstado("CREADA");
+    solicitudNueva.setCostoEstimado(solicitudDTO.getCostoEstimado());
+    solicitudNueva.setTiempoEstimado(solicitudDTO.getTiempoEstimado());
+
+    solicitudNueva.setOrigen(origen);
+    solicitudNueva.setDestino(destino);
+
+    return solicitudRepository.save(solicitudNueva);
+}
 
     /**
      * MODIFICADO: Vuelve a ser un "Hard Delete".
@@ -396,5 +383,24 @@ private void sincronizarEstadoContenedorConSolicitud(Solicitud solicitud) {
             estadoContenedor
     );
 }
+
+
+
+private Localizacion obtenerOCrearLocalizacion(LocalizacionDTO dto) {
+    return localizacionRepository
+            .findByLatitudAndLongitudAndDescripcion(
+                    dto.getLatitud(),
+                    dto.getLongitud(),
+                    dto.getDescripcion()
+            )
+            .orElseGet(() -> {
+                Localizacion nueva = new Localizacion();
+                nueva.setLatitud(dto.getLatitud());
+                nueva.setLongitud(dto.getLongitud());
+                nueva.setDescripcion(dto.getDescripcion());
+                return localizacionRepository.save(nueva);
+            });
+}
+
 
 }

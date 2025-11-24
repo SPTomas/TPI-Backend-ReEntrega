@@ -4,9 +4,13 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Data
 @Entity
 @Table(name = "localizacion")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
 public class Localizacion {
 
     @Id

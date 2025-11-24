@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -17,7 +16,7 @@ public class Ruta {
     @Column(name = "id_ruta")
     private Long idRuta;
 
-    @Column(name = "id_solicitud", nullable = false, unique = true) // Una ruta por solicitud
+    @Column(name = "id_solicitud", nullable = false, unique = true)
     private Long idSolicitud;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -27,12 +26,14 @@ public class Ruta {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_destino")
     private Localizacion destino;
+
     @Column(name = "cantidad_tramos")
     private Integer cantidadTramos;
+
     @Column(name = "cantidad_depositos")
     private Integer cantidadDepositos;
 
-        @OneToMany(mappedBy = "ruta", cascade = CascadeType.ALL)
-        @JsonManagedReference
-        private List<Tramo> tramos;
+    @OneToMany(mappedBy = "ruta", cascade = CascadeType.ALL)
+    @JsonManagedReference
+    private List<Tramo> tramos;
 }

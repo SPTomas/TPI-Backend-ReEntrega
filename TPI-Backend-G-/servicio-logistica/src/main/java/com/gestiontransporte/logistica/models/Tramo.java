@@ -62,4 +62,11 @@ public class Tramo {
     @Column(name = "duracion_min")
     private BigDecimal tiempoEstimado;
 
+
+    @Column(name = "descripcion_origen")
+    private String descripcionOrigen;
+
+    @Column(name = "descripcion_destino")
+    private String descripcionDestino;    
+
 }
