@@ -44,15 +44,7 @@ public LogisticaController(LogisticaService logisticaService,
     this.tramoRepository = tramoRepository;
 }
 
-    // --- Endpoints de Rutas y Tramos (Lógica Compleja) ---
-
-    // @PostMapping("/rutas/calcular")
-    // @Operation(summary = "Calcula y crea una ruta para una solicitud", description = "Rol: OPERADOR")
-    // @PreAuthorize("hasRole('OPERADOR')")
-    // public ResponseEntity<Ruta> calcularRuta(@RequestParam Long idSolicitud) {
-    //     Ruta nuevaRuta = logisticaService.crearRutaParaSolicitud(idSolicitud);
-    //     return ResponseEntity.status(HttpStatus.CREATED).body(nuevaRuta);
-    // }
+ 
 
     @PostMapping("/rutas/calcular")
     @Operation(summary = "Calcula y crea una ruta para una solicitud", description = "Rol: OPERADOR")
@@ -62,6 +54,20 @@ public LogisticaController(LogisticaService logisticaService,
         Ruta nuevaRuta = logisticaService.crearRutaParaSolicitud(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevaRuta);
 }
+
+
+    @PostMapping("/solicitudes/{idSolicitud}/asignar-ruta")
+    public ResponseEntity<Ruta> calcularRuta(
+            @PathVariable Long idSolicitud,
+            @RequestBody CrearRutaRequestDTO request
+    ) {
+        // forzamos que el id del body sea el de la URL
+        request.setIdSolicitud(idSolicitud);
+
+        Ruta nuevaRuta = logisticaService.crearRutaParaSolicitud(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(nuevaRuta);
+    }
+
 
     @PostMapping("/rutas/alternativas")
     @Operation(
@@ -214,4 +220,20 @@ public ResponseEntity<Tramo> cambiarEstadoTramo(
     //     Tramo tramo = tramoService.finalizarTramo(id, request);
     //     return ResponseEntity.ok(tramo);
     // }
+    @PostMapping("/solicitudes/{idSolicitud}/rutas/alternativas")
+    @Operation(
+        summary = "Genera rutas alternativas para una solicitud",
+        description = "Calcula costos y tiempos de varias rutas (directa y con distintos depósitos) sin persistir en BD"
+    )
+    // @PreAuthorize("hasRole('OPERADOR')")
+    public ResponseEntity<List<RutaAlternativaDTO>> generarRutasAlternativasPorSolicitud(
+            @PathVariable Long idSolicitud,
+            @RequestBody RutasAlternativasRequestDTO request
+    ) {
+        // forzamos que el id del body sea el de la URL
+        request.setIdSolicitud(idSolicitud);
+
+        List<RutaAlternativaDTO> alternativas = logisticaService.generarRutasAlternativas(request);
+        return ResponseEntity.ok(alternativas);
+    }
 }

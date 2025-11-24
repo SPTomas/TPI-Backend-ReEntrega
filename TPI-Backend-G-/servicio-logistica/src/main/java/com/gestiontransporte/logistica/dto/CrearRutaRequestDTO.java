@@ -6,8 +6,9 @@ public class CrearRutaRequestDTO {
 
     private Long idSolicitud;
 
+    // 🔹 AHORA OPCIONALES: si no vienen, se usan los de Solicitud
     private PuntoRutaDTO origen;
-    private List<PuntoRutaDTO> puntosIntermedios; // puede ser null o lista vacía
+    private List<PuntoRutaDTO> puntosIntermedios; 
     private PuntoRutaDTO destino;
 
     public Long getIdSolicitud() { return idSolicitud; }

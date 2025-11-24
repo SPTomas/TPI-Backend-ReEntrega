@@ -13,5 +13,6 @@ public class SolicitudDTO {
     private Long tiempoEstimado;
     private Long tiempoReal;
     private String estado;
+    private LocalizacionDTO origen;
+    private LocalizacionDTO destino;
 }
-
