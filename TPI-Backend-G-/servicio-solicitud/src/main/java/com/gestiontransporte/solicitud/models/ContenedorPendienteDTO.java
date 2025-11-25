@@ -12,6 +12,5 @@ public class ContenedorPendienteDTO {
     private Long numeroSolicitud;
     private String estadoSolicitud;
 
-    // Descripción textual de la ubicación actual
     private String ubicacion;
 }

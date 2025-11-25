@@ -8,10 +8,6 @@ public class RutasAlternativasRequestDTO {
     private PuntoRutaDTO origen;
     private PuntoRutaDTO destino;
 
-    /**
-     * Cada lista interna representa una posible combinación de depósitos
-     * Ejemplo: [[1], [2], [1,3]] → 3 alternativas
-     */
     private List<List<Long>> alternativasDepositos;
 
     public Long getIdSolicitud() {

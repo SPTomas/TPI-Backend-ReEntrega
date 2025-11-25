@@ -20,14 +20,12 @@ public class PreciosController {
         this.preciosService = preciosService;
     }
 
-    // GET /precios/gasoil  -> devuelve el precio actual
     @GetMapping("/gasoil")
     public ResponseEntity<PrecioGasoilDTO> getPrecioGasoil() {
         PrecioGasoilDTO dto = preciosService.obtenerPrecioGasoil();
         return ResponseEntity.ok(dto);
     }
 
-    // PUT /precios/gasoil  -> actualiza el precio
     @PutMapping("/gasoil")
     public ResponseEntity<PrecioGasoilDTO> updatePrecioGasoil(
             @RequestBody @Valid PrecioGasoilDTO request

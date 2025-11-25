@@ -17,7 +17,6 @@ public class PreciosService {
         this.preciosRepository = preciosRepository;
     }
 
-    // Siempre trabajamos con el registro id = 1
     private static final Long PRECIO_UNICO_ID = 1L;
 
     @Transactional(readOnly = true)

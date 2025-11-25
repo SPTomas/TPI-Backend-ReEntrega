@@ -55,9 +55,7 @@ public class LogisticaService {
         this.localizacionRepository = localizacionRepository;
     }
 
-    // =========================
-    // CAMBIAR ESTADO TRAMO
-    // =========================
+
     public Tramo cambiarEstadoTramo(Long idTramo, String nuevoEstadoRaw, BigDecimal costoReal) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new EntityNotFoundException("No existe tramo con id " + idTramo));
@@ -93,7 +91,6 @@ public class LogisticaService {
 
                 tramo.setEstado(EstadoTramo.EN_TRASLADO);
 
-                // 🔒 Bloquear el camión
                 apiClientService.actualizarDisponibilidadCamion(tramo.getPatenteCamion(), false);
 
                 break;
@@ -128,7 +125,6 @@ public class LogisticaService {
 
                 tramo.setCostoReal(costoFinal);
 
-                // devolver disponibilidad
                 apiClientService.actualizarDisponibilidadCamion(tramo.getPatenteCamion(), true);
                 break;
 
@@ -149,14 +145,11 @@ public class LogisticaService {
         return tramo;
     }
 
-    // =========================
-    // CREAR RUTA + TRAMOS
-    // =========================
     public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
 
         Long idSolicitud = request.getIdSolicitud();
 
-        // 1) Validar que la solicitud exista
+        // existe solicitud 
         if (!apiClientService.existeSolicitud(idSolicitud)) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
@@ -164,7 +157,7 @@ public class LogisticaService {
             );
         }
 
-        // 2) Traer la solicitud completa
+        // get de la solicitud completa
         SolicitudDTO solicitudDTO = apiClientService.getSolicitud(idSolicitud);
         if (solicitudDTO == null ||
                 solicitudDTO.getOrigen() == null ||
@@ -176,7 +169,7 @@ public class LogisticaService {
             );
         }
 
-        // 3) Armar los PuntoRutaDTO para OSRM
+        // Armar los PuntoRutaDTO para OSRM
         PuntoRutaDTO origenDTO = new PuntoRutaDTO();
         origenDTO.setLatitud(solicitudDTO.getOrigen().getLatitud());
         origenDTO.setLongitud(solicitudDTO.getOrigen().getLongitud());
@@ -185,7 +178,7 @@ public class LogisticaService {
         destinoDTO.setLatitud(solicitudDTO.getDestino().getLatitud());
         destinoDTO.setLongitud(solicitudDTO.getDestino().getLongitud());
 
-        // 4) Depósitos intermedios
+        // Depósitos intermedios
         List<Deposito> depositosEnRuta = new ArrayList<>();
 
         if (request.getPuntosIntermedios() != null) {
@@ -209,7 +202,7 @@ public class LogisticaService {
         int cantidadDepositos = depositosEnRuta.size();
         int cantidadTramos = (cantidadDepositos == 0) ? 1 : (cantidadDepositos + 1);
 
-        // 5) Ver si ya existe Ruta para esa solicitud
+        // existe Ruta para esa solicitud
         Ruta ruta = rutaRepository.findByIdSolicitud(idSolicitud).orElse(null);
 
         if (ruta != null) {
@@ -219,7 +212,7 @@ public class LogisticaService {
             ruta.setIdSolicitud(idSolicitud);
         }
 
-        // 6) Setear ORIGEN y DESTINO como Localizacion
+        // Seteo Localizacion
         Localizacion origenLoc = localizacionRepository.findById(
                 solicitudDTO.getOrigen().getIdLocalizacion()
         ).orElseThrow(() -> new RuntimeException("Origen no existe"));
@@ -235,7 +228,7 @@ public class LogisticaService {
 
         ruta = rutaRepository.save(ruta);
 
-        // 7) Calcular tramos + costos/tiempos
+        // Calculos
         BigDecimal costoTotalEstimado = BigDecimal.ZERO;
         BigDecimal tiempoTotalMin = BigDecimal.ZERO;
 
@@ -388,29 +381,27 @@ public class LogisticaService {
             tramoRepository.save(tramoLast);
         }
 
-        // 8) Tarifa base contenedor
+        // Tarifa base contenedor
         ContenedorDTO contenedorDTO = obtenerContenedorDeSolicitud(idSolicitud);
         BigDecimal tarifaBaseContenedor = calcularPrecioBaseContenedor(contenedorDTO);
 
         costoTotalEstimado = costoTotalEstimado.add(tarifaBaseContenedor);
 
-        // 9) Actualizar estimación en servicio-solicitud
+        // Actualizar estimación solicitud
         apiClientService.actualizarEstimacionSolicitud(
                 idSolicitud,
                 costoTotalEstimado,
                 tiempoTotalMin.longValue()
         );
 
-        // 10) Cargar tramos en la entidad para devolverlos
+        // cargo tramos y devuelvo la ruta que contiene los tramos
         List<Tramo> tramosRuta = tramoRepository.findByRutaOrderByIdTramoAsc(ruta);
         ruta.setTramos(tramosRuta);
 
         return ruta;
     }
 
-    // =========================
-    // HELPER: CREAR TRAMO ESTIMADO
-    // =========================
+    //helper
     private Tramo crearTramo(
             Ruta ruta,
             Deposito depositoOrigen,
@@ -440,10 +431,7 @@ public class LogisticaService {
 
         return tramo;
     }
-
-    // =========================
     // OSRM
-    // =========================
     private OsrmRouteDTO consultarDistanciaOsrm(
             BigDecimal latitudOrigen,
             BigDecimal longitudOrigen,
@@ -467,9 +455,7 @@ public class LogisticaService {
         return response.getRoutes().get(0);
     }
 
-    // =========================
-    // RUTAS ALTERNATIVAS
-    // =========================
+    // alternativas
     private RutaAlternativaDTO calcularRutaAlternativa(
             PuntoRutaDTO origenDTO,
             PuntoRutaDTO destinoDTO,
@@ -740,9 +726,7 @@ public class LogisticaService {
         return alternativas;
     }
 
-    // =========================
-    // COSTO APROXIMADO
-    // =========================
+    // costoAprox
     private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
 
         BigDecimal consumoPromedio = new BigDecimal("0.35");
@@ -755,9 +739,7 @@ public class LogisticaService {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    // =========================
-    // ASIGNAR CAMIÓN
-    // =========================
+    // asignacion camion
     public Tramo asignarCamionATramo(Long idTramo, String patenteCamion) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new IllegalArgumentException("Tramo " + idTramo + " no existe."));
@@ -818,9 +800,6 @@ public class LogisticaService {
         return tramoRepository.save(tramo);
     }
 
-    // =========================
-    // CIERRE DE RUTA Y COSTOS FINALES
-    // =========================
     private void procesarSiRutaFinalizada(Ruta ruta) {
         if (ruta == null) {
             return;

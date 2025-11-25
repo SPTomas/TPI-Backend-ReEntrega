@@ -24,7 +24,6 @@ public class Cliente {
     @Column(name = "documento")
     private String documento;
 
-    // Para linkear con Keycloak más adelante si querés
     @Column(name = "id_keycloak")
     private String idKeycloak;
 }

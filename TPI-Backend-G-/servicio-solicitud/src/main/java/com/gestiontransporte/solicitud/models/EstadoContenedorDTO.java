@@ -1,5 +1,4 @@
-package com.gestiontransporte.solicitud.models; // o .dto si tenés
-
+package com.gestiontransporte.solicitud.models; 
 public class EstadoContenedorDTO {
 
     private Long idContenedor;

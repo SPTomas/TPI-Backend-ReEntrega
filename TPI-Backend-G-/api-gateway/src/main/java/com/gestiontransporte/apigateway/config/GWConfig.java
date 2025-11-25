@@ -12,17 +12,9 @@ public class GWConfig {
     public RouteLocator gatewayRoutes(RouteLocatorBuilder builder) {
         return builder.routes()
 
-            // ============================================================
-            //      MICROSERVICIO SOLICITUD (context-path: /api/solicitud)
-            // ============================================================
             .route("servicio-solicitud", r -> r
                 .path("/solicitudes/**", "/contenedores/**")
                 .uri("http://servicio-solicitud:8082"))
-
-
-            // ============================================================
-            //      MICROSERVICIO TRANSPORTE 
-            // ============================================================
 
 
             .route("servicio-transporte", r -> r
@@ -30,10 +22,6 @@ public class GWConfig {
                 .uri("http://servicio-transporte:8083"))
 
  
-            // ============================================================
-            //      MICROSERVICIO logistica (sin context-path)
-            // ============================================================
-
             .route("servicio-logistica", r -> r
                 .path("/api/logistica/**")
                 .uri("http://servicio-logistica:8084"))

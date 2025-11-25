@@ -7,7 +7,7 @@ import com.gestiontransporte.logistica.models.Deposito;
 import com.gestiontransporte.logistica.models.EstadoTramo;
 import com.gestiontransporte.logistica.models.Ruta;
 import com.gestiontransporte.logistica.models.Tramo;
-import com.gestiontransporte.logistica.repositories.DepositoRepository; // Rápido para CRUD
+import com.gestiontransporte.logistica.repositories.DepositoRepository; 
 import com.gestiontransporte.logistica.repositories.RutaRepository;
 import com.gestiontransporte.logistica.repositories.TramoRepository;
 import com.gestiontransporte.logistica.services.LogisticaService;
@@ -30,7 +30,7 @@ import java.util.List;
 public class LogisticaController {
 
     private final LogisticaService logisticaService;
-    private final DepositoRepository depositoRepository; // Para el CRUD simple de Depósitos
+    private final DepositoRepository depositoRepository; 
     private final RutaRepository rutaRepository;
 private final TramoRepository tramoRepository;
 
@@ -44,26 +44,12 @@ public LogisticaController(LogisticaService logisticaService,
     this.tramoRepository = tramoRepository;
 }
 
- 
-
-//     @PostMapping("/rutas/calcular")
-//     @Operation(summary = "Calcula y crea una ruta para una solicitud", description = "Rol: OPERADOR")
-//     // @PreAuthorize("hasRole('OPERADOR')")
-//     public ResponseEntity<Ruta> calcularRuta(@RequestBody CrearRutaRequestDTO request) {
-//         System.out.println(">>> LLEGÓ A /rutas/calcular: " + request);
-//         Ruta nuevaRuta = logisticaService.crearRutaParaSolicitud(request);
-//         return ResponseEntity.status(HttpStatus.CREATED).body(nuevaRuta);
-// }
-
-
     @PostMapping("/solicitudes/{idSolicitud}/asignar-ruta")
     public ResponseEntity<Ruta> calcularRuta(
             @PathVariable Long idSolicitud,
             @RequestBody CrearRutaRequestDTO request
     ) {
-        // forzamos que el id del body sea el de la URL
         request.setIdSolicitud(idSolicitud);
-
         Ruta nuevaRuta = logisticaService.crearRutaParaSolicitud(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevaRuta);
     }
@@ -74,7 +60,7 @@ public LogisticaController(LogisticaService logisticaService,
         summary = "Genera rutas alternativas para una solicitud",
         description = "Calcula costos y tiempos de varias rutas (directa y con distintos depósitos) sin persistir en BD"
     )
-    // @PreAuthorize("hasRole('OPERADOR')")
+
     public ResponseEntity<List<RutaAlternativaDTO>> generarRutasAlternativas(
             @RequestBody RutasAlternativasRequestDTO request
     ) {
@@ -85,7 +71,6 @@ public LogisticaController(LogisticaService logisticaService,
 
     @PostMapping("/tramos/{idTramo}/asignar-camion")
     @Operation(summary = "Asigna un camión a un tramo", description = "Rol: OPERADOR")
-    //@PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<Tramo> asignarCamion(
             @PathVariable Long idTramo, 
             @RequestBody AsignarCamionRequestDTO request) {
@@ -102,7 +87,7 @@ public LogisticaController(LogisticaService logisticaService,
         Tramo tramoActualizado = logisticaService.cambiarEstadoTramo(
                 idTramo,
                 request.getNuevoEstado(),
-                request.getCostoReal()  // ahora también pasa el costo real
+                request.getCostoReal()  
         );
         return ResponseEntity.ok(tramoActualizado);
     }
@@ -115,24 +100,18 @@ public LogisticaController(LogisticaService logisticaService,
         return ResponseEntity.ok(tramos);
     }
 
-    // --- Endpoints de Depósitos (CRUD Simple - Req. Func. 10) ---
-
     @GetMapping("/depositos")
     @Operation(summary = "Lista todos los depósitos", description = "Rol: OPERADOR")
-    //@PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<List<Deposito>> listarDepositos() {
         return ResponseEntity.ok(depositoRepository.findAll());
     }
 
     @PostMapping("/depositos")
     @Operation(summary = "Registra un nuevo depósito", description = "Rol: OPERADOR")
-    //@PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<Deposito> crearDeposito(@RequestBody Deposito deposito) {
         Deposito nuevoDeposito = depositoRepository.save(deposito);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevoDeposito);
     }
-
-    // ================== GET RUTAS ==================
 
     @GetMapping("/rutas")
     @Operation(summary = "Lista todas las rutas", description = "Rol: OPERADOR")
@@ -143,7 +122,6 @@ public LogisticaController(LogisticaService logisticaService,
 
     @GetMapping("/rutas/{idRuta}")
     @Operation(summary = "Obtiene una ruta por ID", description = "Rol: OPERADOR")
-    // @PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<Ruta> obtenerRutaPorId(@PathVariable Long idRuta) {
         return rutaRepository.findById(idRuta)
                 .map(ResponseEntity::ok)
@@ -220,27 +198,16 @@ public LogisticaController(LogisticaService logisticaService,
         return ResponseEntity.ok(tramos);
     }
 
-    //     @PatchMapping("/tramos/{id}/finalizar")
-    // public ResponseEntity<Tramo> finalizarTramo(
-    //         @PathVariable Long id,
-    //         @RequestBody FinalizarTramoDTO request
-    // ) {
-    //     Tramo tramo = tramoService.finalizarTramo(id, request);
-    //     return ResponseEntity.ok(tramo);
-    // }
     @PostMapping("/solicitudes/{idSolicitud}/rutas/alternativas")
     @Operation(
         summary = "Genera rutas alternativas para una solicitud",
         description = "Calcula costos y tiempos de varias rutas (directa y con distintos depósitos) sin persistir en BD"
     )
-    // @PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<List<RutaAlternativaDTO>> generarRutasAlternativasPorSolicitud(
             @PathVariable Long idSolicitud,
             @RequestBody RutasAlternativasRequestDTO request
     ) {
-        // forzamos que el id del body sea el de la URL
         request.setIdSolicitud(idSolicitud);
-
         List<RutaAlternativaDTO> alternativas = logisticaService.generarRutasAlternativas(request);
         return ResponseEntity.ok(alternativas);
     }

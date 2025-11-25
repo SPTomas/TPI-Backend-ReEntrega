@@ -19,32 +19,24 @@ public class Tramo {
     private Long idTramo;
 
     @ManyToOne
-    @JoinColumn(name = "id_ruta", nullable = false) // FK a Ruta
+    @JoinColumn(name = "id_ruta", nullable = false) 
     @JsonBackReference
     private Ruta ruta;
 
     @ManyToOne
-    @JoinColumn(name = "deposito_origen") // FK a Deposito (puede ser nulo si es origen)
+    @JoinColumn(name = "deposito_origen") 
     private Deposito depositoOrigen;
     
     @ManyToOne
-    @JoinColumn(name = "deposito_destino") // FK a Deposito (puede ser nulo si es destino final)
+    @JoinColumn(name = "deposito_destino") 
     private Deposito depositoDestino;
 
-    private String tipo; // (origen-deposito, deposito-deposito, deposito-destino)
+    private String tipo; 
     
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")
     private EstadoTramo estado = EstadoTramo.ESTIMADO;
-    //@Column(name = "estado") //lo cambie porque encontre en internet y le pregutne a l chat 
-    // cuestion que e nteoria el enum sirve para que la variable pueda solo aceptar esos valores y nos ahorramos probles
-    //tanto de consistencia entre los microservicios y mantenibilidad 
-    // private String estado = "SIN_EMPEZAR";
-
-      /**
-     * Valores esperados (ejemplo): SIN_EMPEZAR" - "EN_TRASLADO" - "FINALIZADO"
-     */
 
     @Column(name = "costo_aproximado")
     private BigDecimal costoAproximado;
@@ -56,7 +48,7 @@ public class Tramo {
     @Column(name = "fecha_hora_fin")
     private LocalDateTime fechaHoraFin;
 
-    @Column(name = "patente_camion") // Guardamos la FK (patente)
+    @Column(name = "patente_camion") 
     private String patenteCamion;
 
     @Column(name = "duracion_min")

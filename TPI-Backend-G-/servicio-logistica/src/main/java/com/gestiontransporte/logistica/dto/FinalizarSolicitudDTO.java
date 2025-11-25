@@ -7,6 +7,6 @@ import java.math.BigDecimal;
 public class FinalizarSolicitudDTO {
 
     private BigDecimal costoFinal;
-    private Long tiempoReal;   // en minutos
-    private String estado;     // ej: "COMPLETADA"
+    private Long tiempoReal; 
+    private String estado;    
 }

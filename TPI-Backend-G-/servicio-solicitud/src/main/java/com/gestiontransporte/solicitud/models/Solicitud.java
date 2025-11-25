@@ -34,8 +34,6 @@ public class Solicitud {
     @Column(name = "estado")
     private String estado;
 
-    // 🔹 NUEVO: FKs a Localizacion
-
     @ManyToOne
     @JoinColumn(name = "id_origen")
     private Localizacion origen;

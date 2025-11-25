@@ -14,15 +14,11 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(authorize -> authorize
-                // 1. Permite el acceso a Swagger UI sin autenticación
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                // 2. ¡Permite el acceso a TODOS TUS ENDPOINTS por ahora!
                 .requestMatchers("/api/logistica/**").permitAll() 
-                // 3. (Opcional) Permite todo el resto
                 .anyRequest().permitAll() 
             )
-            .csrf(csrf -> csrf.disable()); // Deshabilitamos CSRF para Postman
-
+            .csrf(csrf -> csrf.disable());
         return http.build();
     }
 }

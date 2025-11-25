@@ -7,14 +7,10 @@ import org.springframework.stereotype.Repository;
 
 import com.gestiontransporte.solicitud.models.Solicitud;
 
-/**
- * Repositorio de Spring Data JPA para la entidad Solicitud.
- * Extiende JpaRepository para obtener métodos CRUD y de paginación
- */
-@Repository // (Opcional, pero buena práctica) Indica que es un bean de repositorio
+
+@Repository 
 public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
     
-
         Optional<Solicitud> findByIdContenedor(Long idContenedor);
 
 ;

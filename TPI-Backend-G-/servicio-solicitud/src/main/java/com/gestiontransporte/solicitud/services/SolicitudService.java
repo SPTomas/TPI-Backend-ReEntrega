@@ -34,7 +34,7 @@ public class SolicitudService {
     private final ContenedorService contenedorService;
     private final RestTemplate restTemplate;
     private final ClienteService clienteService;
-    private final LocalizacionRepository localizacionRepository;   // 🔹 NUEVO
+    private final LocalizacionRepository localizacionRepository; 
 
     @Value("${api.servicios.logistica}")
     private String logisticaBaseUrl;
@@ -48,40 +48,24 @@ public class SolicitudService {
         this.contenedorService = contenedorService;
         this.restTemplate = restTemplate;
         this.clienteService = clienteService;
-        this.localizacionRepository = localizacionRepository;   // 🔹
+        this.localizacionRepository = localizacionRepository; 
     }
-    /**
-     * Busca una solicitud por su número (ID).
-     * @param numero El ID de la solicitud.
-     * @return Un Optional que contiene la solicitud si se encuentra, o vacío si no.
-     */
+
     public Optional<Solicitud> buscarSolicitudPorId(Long numero) {
-        // Delega la llamada directamente al repositorio
         return solicitudRepository.findById(numero);
     }
 
-    /**
-     * Obtiene todas las solicitudes registradas.
-     * @return Una lista de todas las solicitudes.
-     */
     public List<Solicitud> buscarTodasLasSolicitudes() {
-        // Delega la llamada directamente al repositorio
         return solicitudRepository.findAll();
     }
 
    public Solicitud crearSolicitud(SolicitudRequestDTO solicitudDTO) {
-
-    // 1) Validar contenedor
     if (solicitudDTO.getPesoContenedor() == null || solicitudDTO.getVolumenContenedor() == null) {
         throw new IllegalArgumentException("pesoContenedor y volumenContenedor son obligatorios.");
     }
-
-    // 2) Validar origen / destino
     if (solicitudDTO.getOrigen() == null || solicitudDTO.getDestino() == null) {
         throw new IllegalArgumentException("Debe enviar origen y destino.");
     }
-
-    // 3) Resolver Cliente
     Long idCliente;
     if (solicitudDTO.getIdCliente() != null) {
         idCliente = clienteService.buscarPorId(solicitudDTO.getIdCliente())
@@ -96,8 +80,6 @@ public class SolicitudService {
         );
         idCliente = cliente.getIdCliente();
     }
-
-    // 4) Crear Contenedor
     Contenedor contenedorNuevo = new Contenedor();
     contenedorNuevo.setIdCliente(idCliente);
     contenedorNuevo.setPeso(solicitudDTO.getPesoContenedor());
@@ -105,11 +87,9 @@ public class SolicitudService {
 
     Contenedor contenedorGuardado = contenedorService.crearContenedor(contenedorNuevo);
 
-    // 5) Crear o Reusar Localización ORIGEN y DESTINO
     Localizacion origen = obtenerOCrearLocalizacion(solicitudDTO.getOrigen());
     Localizacion destino = obtenerOCrearLocalizacion(solicitudDTO.getDestino());
 
-    // 6) Crear Solicitud
     Solicitud solicitudNueva = new Solicitud();
     solicitudNueva.setIdCliente(idCliente);
     solicitudNueva.setIdContenedor(contenedorGuardado.getIdContenedor());
@@ -123,33 +103,17 @@ public class SolicitudService {
     return solicitudRepository.save(solicitudNueva);
 }
 
-    /**
-     * MODIFICADO: Vuelve a ser un "Hard Delete".
-     * Borra físicamente la solicitud de la base de datos.
-     * @param numero El ID de la solicitud a borrar.
-     * @return true si se borró, false si no se encontró.
-     */
     public boolean borrarSolicitud(Long numero) {
-        // 1. Verifica si la entidad existe
         if (solicitudRepository.existsById(numero)) {
-            // 2. Si existe, la borra de la BDD
             solicitudRepository.deleteById(numero);
             return true;
         }
-        // 3. Si no existe, devuelve false
         return false;
     }
-    /**
-     * REEMPLAZA una solicitud existente.
-     * @param numero El ID de la solicitud a reemplazar.
-     * @param solicitudNueva El objeto con los datos nuevos.
-     * @return La solicitud actualizada, o vacío si no se encontró.
-     */
+    
     public Optional<Solicitud> reemplazarSolicitud(Long numero, Solicitud solicitudNueva) {
-        // Busca la solicitud existente
         return solicitudRepository.findById(numero)
             .map(solicitudActual -> {
-                // Actualiza TODOS los campos (lógica de PUT)
                 solicitudActual.setIdCliente(solicitudNueva.getIdCliente());
                 solicitudActual.setIdContenedor(solicitudNueva.getIdContenedor());
                 solicitudActual.setTiempoEstimado(solicitudNueva.getTiempoEstimado());
@@ -161,13 +125,6 @@ public class SolicitudService {
             });
     }
 
-    /**
-     * ACTUALIZA PARCIALMENTE una solicitud (lógica de PATCH).
-     * Actualiza solo los campos que vienen en el Map.
-     * @param numero El ID de la solicitud a actualizar.
-     * @param updates Un Map con los campos a cambiar (ej: {"costoFinal": 1500.0})
-     * @return La solicitud actualizada, o vacío si no se encontró.
-     */
 public Optional<Solicitud> actualizarParcial(Long numero, java.util.Map<String, Object> updates) {
     return solicitudRepository.findById(numero)
         .map(solicitudActual -> {
@@ -200,10 +157,8 @@ public Optional<Solicitud> actualizarParcial(Long numero, java.util.Map<String, 
                 solicitudActual.setEstado(updates.get("estado").toString());
             }
 
-            // 👉 Guardamos primero
             Solicitud guardada = solicitudRepository.save(solicitudActual);
 
-            // 👉 Si el request tocó el estado, sincronizamos el contenedor
             if (updates.containsKey("estado")) {
                 sincronizarEstadoContenedorConSolicitud(guardada);
             }
@@ -212,17 +167,6 @@ public Optional<Solicitud> actualizarParcial(Long numero, java.util.Map<String, 
         });
 }
 
-
-
-
-
-    
-    /**
-     * Marca una solicitud como "Cancelada".
-     * (Actualmente solo la busca, ¡necesita un campo 'estado'!)
-     * @param numero El ID de la solicitud a cancelar.
-     * @return La solicitud "cancelada", o vacío si no se encontró.
-     */
     public Optional<Solicitud> cancelarSolicitud(Long numero) {
         return solicitudRepository.findById(numero)
             .map(solicitudActual -> {
@@ -252,7 +196,6 @@ public Optional<Solicitud> finalizarSolicitud(Long numero, FinalizarSolicitudDTO
 
             Solicitud guardada = solicitudRepository.save(solicitudActual);
 
-            //  sincroniza el contenedor 
             sincronizarEstadoContenedorConSolicitud(guardada);
 
             return guardada;
@@ -268,7 +211,6 @@ public SeguimientoSolicitudDTO obtenerSeguimiento(Long numero) {
 
     SeguimientoSolicitudDTO dto = new SeguimientoSolicitudDTO();
 
-    // --- Completar datos de la solicitud ---
     dto.setNumeroSolicitud(solicitud.getNumero());
     dto.setEstadoSolicitud(solicitud.getEstado());
     dto.setCostoEstimado(solicitud.getCostoEstimado());
@@ -276,14 +218,12 @@ public SeguimientoSolicitudDTO obtenerSeguimiento(Long numero) {
     dto.setTiempoEstimado(solicitud.getTiempoEstimado());
     dto.setTiempoReal(solicitud.getTiempoReal());
 
-    // --- Pedir la ruta al micro de logística ---
     String urlRuta = logisticaBaseUrl + "/rutas/solicitud/" + numero;
 
     RutaLogisticaDTO ruta;
     try {
         ruta = restTemplate.getForObject(urlRuta, RutaLogisticaDTO.class);
     } catch (Exception e) {
-        // Si no hay ruta o falló logística, devolvemos solo lo de la solicitud
         return dto;
     }
 
@@ -300,8 +240,6 @@ public SeguimientoSolicitudDTO obtenerSeguimiento(Long numero) {
         dto.setTramoActual(null);
         return dto;
     }
-
-    // Mapear tramos de logística -> tramos de seguimiento
     List<TramoSeguimientoDTO> tramosSeguimiento = ruta.getTramos()
             .stream()
             .map(t -> {
@@ -327,7 +265,6 @@ public SeguimientoSolicitudDTO obtenerSeguimiento(Long numero) {
 
     dto.setTramos(tramosSeguimiento);
 
-    // Estado de la ruta en base a los tramos
     boolean todosFinalizados = tramosSeguimiento.stream()
             .allMatch(t -> "FINALIZADO".equalsIgnoreCase(t.getEstado()));
 
@@ -342,7 +279,6 @@ public SeguimientoSolicitudDTO obtenerSeguimiento(Long numero) {
         dto.setEstadoRuta("NO_INICIADA");
     }
 
-    // Tramo actual = primer tramo que NO está FINALIZADO
     TramoSeguimientoDTO tramoActual = tramosSeguimiento.stream()
             .filter(t -> !"FINALIZADO".equalsIgnoreCase(t.getEstado()))
             .findFirst()
@@ -375,7 +311,6 @@ private void sincronizarEstadoContenedorConSolicitud(Solicitud solicitud) {
             estadoContenedor = "CANCELADO";
             break;
         default:
-            // si es un estado raro, no tocamos el contenedor
             return;
     }
 

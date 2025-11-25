@@ -27,9 +27,6 @@ public class ClienteService {
         return clienteRepository.save(cliente);
     }
 
-    /**
-     * Devuelve el cliente si ya existe por email, o lo crea.
-     */
     public Cliente obtenerOCrearPorEmail(String email, String nombre, String telefono) {
         return clienteRepository.findByEmail(email)
                 .orElseGet(() -> {

@@ -14,17 +14,9 @@ public class SecurityConfig {
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
-            // Deshabilitar CSRF (necesario para que Postman funcione sin tokens raros)
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
-            
-            // Configurar las reglas de autorizaciÃ³n
             .authorizeExchange(exchanges -> exchanges
 
-                // ATENTO ESTO LO ESCRIBIO UN SER HUMANO PENSANTE
-                // AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH
-                // grito para que prestes atencion
-                // el hasRole SIEMPRE en mayusculas mismo nombre que el keycloak pero en mayusculas
-                 
                 //admin
                 .pathMatchers("/transporte/transportistas/**").hasRole("ADMIN")
                 .pathMatchers("/transporte/camiones/**").hasRole("ADMIN")

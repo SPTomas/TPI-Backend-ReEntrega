@@ -6,8 +6,7 @@ import java.math.BigDecimal;
 @Data
 public class TramoAlternativoDTO {
 
-    private String tipo; // origen-destino, origen-deposito, deposito-deposito, deposito-destino
-
+    private String tipo; 
     private String descripcionOrigen;
     private String descripcionDestino;
 

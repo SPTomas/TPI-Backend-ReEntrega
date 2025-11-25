@@ -1,6 +1,6 @@
 
 services:
-  # 1. Base de Datos
+  # Base de Datos
   postgres-db:
     image: postgres:15
     container_name: postgres_db_transporte
@@ -14,13 +14,13 @@ services:
     networks:
       - gestion-transporte-net
 
-  # 2. KEYCLOAK (ya desplegado, pero todavía no usado por los servicios)
+  # KEYCLOAK 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.3
     container_name: keycloak
     command: start-dev
     ports:
-      - "8081:8080"     # Accedés por http://localhost:8081
+      - "8081:8080" 
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin123
@@ -29,7 +29,7 @@ services:
     networks:
       - gestion-transporte-net
 
-  # 3. OSRM (Mapas / Ruteo)
+  #bOSRM
   osrm:
     image: ghcr.io/project-osrm/osrm-backend:latest
     container_name: osrm
@@ -38,10 +38,10 @@ services:
     networks:
       - gestion-transporte-net
     volumes:
-      - ./osrm-data:/data   # Debe existir argentina-latest.osrm adentro
+      - ./osrm-data:/data   
     command: osrm-routed /data/argentina-latest.osrm
 
-  # 4. Microservicio de Solicitudes
+  # Solicitudes
   servicio-solicitud:
     build:
       context: ./servicio-solicitud
@@ -50,20 +50,17 @@ services:
       - "8082:8082"
     depends_on:
       - postgres-db
-      - keycloak   # Solo orden de arranque, no lo usa todavía
+      - keycloak   
     networks:
       - gestion-transporte-net
     environment:
-      # --- Conexión a BD ---
+      # BD
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/db_gestion_transporte
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: tu_password_de_postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      # --- Todavía SIN integración con Keycloak ---
-      # Cuando lo uses, acá va:
-      # SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/bda-realm
 
-  # 5. Microservicio de Transporte
+  # Transporte
   servicio-transporte:
     build:
       context: ./servicio-transporte
@@ -76,15 +73,13 @@ services:
     networks:
       - gestion-transporte-net
     environment:
-      # --- Conexión a BD ---
+      # BD
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/db_gestion_transporte
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: tu_password_de_postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      # --- Todavía SIN integración con Keycloak ---
-      # SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/bda-realm
-
-  # 6. Microservicio de Logística
+  
+  # Logística
   servicio-logistica:
     build:
       context: ./servicio-logistica
@@ -100,23 +95,18 @@ services:
     networks:
       - gestion-transporte-net
     environment:
-      # --- Conexión a BD ---
+      # BD
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/db_gestion_transporte
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: tu_password_de_postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-      # --- Todavía SIN integración con Keycloak ---
-      # SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/bda-realm
-
-      # --- URLs de las APIs que consume (usando nombres de servicio Docker) ---
       API_SERVICIOS_TRANSPORTE: http://servicio-transporte:8083/transporte
       API_SERVICIOS_SOLICITUD: http://servicio-solicitud:8082/solicitudes
       API_SERVICIOS_CONTENEDOR: http://servicio-solicitud:8082/contenedores   
 
       API_DISTANCIA_URL: http://osrm:5000
 
-  # 7. API GATEWAY
+  # API GATEWAY
   api-gateway:
     build:
       context: ./api-gateway
@@ -130,15 +120,6 @@ services:
       - keycloak
     networks:
       - gestion-transporte-net
-    # environment:
-      # Todavía SIN validar JWT
-      # SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/bda-realm
-
-      # (Opcional) si tu gateway necesita saber las URLs de los microservicios
-      # API_SOLICITUD_URL: http://servicio-solicitud:8082
-      # API_TRANSPORTE_URL: http://servicio-transporte:8083
-      # API_LOGISTICA_URL: http://servicio-logistica:8084
-
 networks:
   gestion-transporte-net:
     driver: bridge

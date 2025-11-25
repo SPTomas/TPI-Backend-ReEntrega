@@ -5,13 +5,13 @@ import java.util.List;
 
 public class RutaAlternativaDTO {
 
-    private String nombre;               // "Ruta directa", "Depósitos [1]", etc.
+    private String nombre;               
     private BigDecimal costoEstimado;
     private BigDecimal tiempoEstimadoMin;
     private int cantidadTramos;
     private int cantidadDepositos;
     private List<String> descripcionTramos;
-    private List<TramoAlternativoDTO> tramos;     // ← NUEVO
+    private List<TramoAlternativoDTO> tramos;     
 
     public String getNombre() {
         return nombre;

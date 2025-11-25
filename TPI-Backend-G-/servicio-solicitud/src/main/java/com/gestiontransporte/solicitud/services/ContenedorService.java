@@ -19,9 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Capa de Servicio que centraliza la lógica de negocio para los Contenedores.
- */
 @Service
 public class ContenedorService {
 
@@ -41,75 +38,43 @@ public class ContenedorService {
         this.restTemplate = restTemplate;
     }
 
-    /**
-     * Crea un nuevo contenedor.
-     * Asigna un estado inicial "PENDIENTE_RETIRO"[cite: 1325, 1376].
-     * @param contenedor El contenedor a crear.
-     * @return El contenedor guardado.
-     */
     public Contenedor crearContenedor(Contenedor contenedor) {
-        // Validación de lógica de negocio
         if (contenedor.getIdCliente() == null || contenedor.getPeso() == null || contenedor.getVolumen() == null) {
             throw new IllegalArgumentException("El ID de Cliente, Peso y Volumen son obligatorios para crear un contenedor.");
         }
-        
-        // Asignamos un estado inicial para el seguimiento
         contenedor.setEstado("PENDIENTE_ENTREGA");
         
         return contenedorRepository.save(contenedor);
     }
 
-    /**
-     * Busca un contenedor por su ID.
-     * @param idContenedor El ID del contenedor.
-     * @return Un Optional con el contenedor si se encuentra.
-     */
     public Optional<Contenedor> buscarPorId(Long idContenedor) {
         return contenedorRepository.findById(idContenedor);
     }
 
-    /**
-     * Lista todos los contenedores existentes.
-     * @return Lista de contenedores.
-     */
     public List<Contenedor> buscarTodos() {
         return contenedorRepository.findAll();
     }
 
-    /**
-     * Actualiza el estado de un contenedor (para el seguimiento).
-     * @param idContenedor El ID del contenedor a actualizar.
-     * @param nuevoEstado El nuevo estado (ej. "EN_VIAJE", "EN_DEPOSITO", "ENTREGADO_EN_DESTINO").
-     * @return El contenedor actualizado, o vacío si no se encontró.
-     */
     public Optional<Contenedor> actualizarEstado(Long idContenedor, String nuevoEstado) {
-        // Buscamos el contenedor por su ID
         return contenedorRepository.findById(idContenedor)
             .map(contenedor -> {
-                // Si lo encontramos, actualizamos el estado y guardamos
                 contenedor.setEstado(nuevoEstado);
                 return contenedorRepository.save(contenedor);
             });
     }
 
-    // (Nota: No implementamos 'delete' porque los contenedores
-    // son parte de una solicitud histórica y no deberían borrarse)
     public Optional<String> obtenerEstado(Long idContenedor) {
         return contenedorRepository.findById(idContenedor)
                 .map(Contenedor::getEstado);
     }
 
-
-
     public List<ContenedorPendienteDTO> buscarPendientes(Long idClienteFiltro, String estadoFiltro) {
 
-        // Estados considerados "pendientes de entrega"
         List<String> estadosPendientes = List.of("PENDIENTE_ENTREGA", "EN_VIAJE", "EN_DEPOSITO");
 
         List<Contenedor> contenedores;
 
         if (estadoFiltro != null && !estadoFiltro.isBlank()) {
-            // filtro por un solo estado
             List<String> estados = List.of(estadoFiltro);
             if (idClienteFiltro != null) {
                 contenedores = contenedorRepository.findByEstadoInAndIdCliente(estados, idClienteFiltro);
@@ -117,7 +82,6 @@ public class ContenedorService {
                 contenedores = contenedorRepository.findByEstadoIn(estados);
             }
         } else {
-            // usamos el set de estados "pendientes"
             if (idClienteFiltro != null) {
                 contenedores = contenedorRepository.findByEstadoInAndIdCliente(estadosPendientes, idClienteFiltro);
             } else {
@@ -133,20 +97,18 @@ public class ContenedorService {
             dto.setIdCliente(c.getIdCliente());
             dto.setEstadoContenedor(c.getEstado());
 
-            // Buscar la solicitud asociada a este contenedor
             solicitudRepository.findByIdContenedor(c.getIdContenedor())
                     .ifPresent(sol -> {
                         dto.setNumeroSolicitud(sol.getNumero());
                         dto.setEstadoSolicitud(sol.getEstado());
 
-                        // Intentar consultar la ruta para determinar ubicación
                         try {
                             String urlRuta = logisticaBaseUrl + "/rutas/solicitud/" + sol.getNumero();
                             RutaLogisticaDTO ruta = restTemplate.getForObject(urlRuta, RutaLogisticaDTO.class);
                             String ubicacion = calcularUbicacionDesdeRuta(ruta);
                             dto.setUbicacion(ubicacion);
                         } catch (Exception e) {
-                            dto.setUbicacion(null); // no pudimos obtener ruta
+                            dto.setUbicacion(null); 
                         }
                     });
 
@@ -170,7 +132,6 @@ public class ContenedorService {
             return "ENTREGADO_EN_DESTINO";
         }
 
-        // Tramo actual = primer tramo no finalizado
         TramoLogisticaDTO tramoActual = tramos.stream()
                 .filter(t -> !"FINALIZADO".equalsIgnoreCase(t.getEstado()))
                 .findFirst()
@@ -189,7 +150,6 @@ public class ContenedorService {
         } else if ("ASIGNADO".equalsIgnoreCase(tramoActual.getEstado())) {
             return "Esperando salida desde " + origen;
         } else {
-            // ESTIMADO u otros
             return "En " + origen;
         }
     }

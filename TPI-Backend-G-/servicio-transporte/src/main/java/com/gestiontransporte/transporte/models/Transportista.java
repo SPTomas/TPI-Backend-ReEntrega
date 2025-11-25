@@ -3,14 +3,14 @@ package com.gestiontransporte.transporte.models;
 import jakarta.persistence.*;
 import lombok.Data;
 
-@Data // Anotación de Lombok para getters, setters, etc.
+@Data 
 @Entity
 @Table(name = "transportista")
 public class Transportista {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_transportista") // Coincide con el DER
+    @Column(name = "id_transportista")
     private Long idTransportista;
 
     @Column(name = "nombre")
@@ -22,10 +22,6 @@ public class Transportista {
     @Column(name = "telefono")
     private String telefono;
 
-    /**
-     * Campo para el Soft-Delete (ej. "ACTIVO", "ARCHIVADO")
-     * (Basado en el Swagger)
-     */
     @Column(name = "estado")
     private String estado;
 }

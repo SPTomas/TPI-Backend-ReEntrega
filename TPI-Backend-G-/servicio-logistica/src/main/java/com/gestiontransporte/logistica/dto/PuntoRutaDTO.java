@@ -7,7 +7,6 @@ public class PuntoRutaDTO {
     private BigDecimal latitud;
     private BigDecimal longitud;
 
-    // Si el punto corresponde a un depósito
     private Long idDeposito;
 
     public BigDecimal getLatitud() { return latitud; }

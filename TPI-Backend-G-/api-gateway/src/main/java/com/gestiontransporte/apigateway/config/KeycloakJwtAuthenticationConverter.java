@@ -31,8 +31,7 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Mono<A
         }
 
         List<String> roles = (List<String>) realmAccess.get("roles");
-        
-        // Transforma "admin" en "ROLE_ADMIN" que es lo que le gusta a Spring
+
         return roles.stream()
                 .map(roleName -> "ROLE_" + roleName.toUpperCase()) 
                 .map(SimpleGrantedAuthority::new)

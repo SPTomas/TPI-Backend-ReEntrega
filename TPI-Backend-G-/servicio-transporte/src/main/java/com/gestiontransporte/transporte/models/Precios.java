@@ -15,7 +15,6 @@ public class Precios {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Precio por litro de gasoil
     @Column(name = "precio_gasoil", nullable = false, precision = 15, scale = 2)
     private BigDecimal precioGasoil;
 }
