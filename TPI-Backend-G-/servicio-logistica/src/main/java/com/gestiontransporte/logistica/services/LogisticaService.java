@@ -39,7 +39,7 @@ public class LogisticaService {
     private final TramoRepository tramoRepository;
     private final DepositoRepository depositoRepository;
     private final ApiClientService apiClientService;
-private final LocalizacionRepository localizacionRepository;
+    private final LocalizacionRepository localizacionRepository;
 
     public LogisticaService(
             RutaRepository rutaRepository,
@@ -54,6 +54,7 @@ private final LocalizacionRepository localizacionRepository;
         this.apiClientService = apiClientService;
         this.localizacionRepository = localizacionRepository;
     }
+
     // =========================
     // CAMBIAR ESTADO TRAMO
     // =========================
@@ -75,20 +76,17 @@ private final LocalizacionRepository localizacionRepository;
                     throw new IllegalStateException("El tramo no tiene camión asignado.");
                 }
 
-                // ⚠️ Traemos el camión desde transporte
                 CamionDTO camion = apiClientService.getCamion(tramo.getPatenteCamion());
                 if (camion == null) {
                     throw new IllegalStateException("No se pudo obtener el camión desde servicio-transporte.");
                 }
 
-                // Si no está disponible → NO PERMITIR INICIO
                 if (Boolean.FALSE.equals(camion.getDisponibilidad())) {
                     throw new IllegalStateException(
-                        "El camión " + camion.getPatente() + " no está disponible para iniciar este tramo."
+                            "El camión " + camion.getPatente() + " no está disponible para iniciar este tramo."
                     );
                 }
 
-                // ✔ Si está disponible, iniciar tramo
                 if (tramo.getFechaHoraInicio() == null) {
                     tramo.setFechaHoraInicio(LocalDateTime.now());
                 }
@@ -100,43 +98,40 @@ private final LocalizacionRepository localizacionRepository;
 
                 break;
 
+            case FINALIZADO:
 
-        case FINALIZADO:
+                if (tramo.getFechaHoraInicio() == null) {
+                    throw new IllegalStateException("No se puede finalizar un tramo que nunca inició");
+                }
 
-            if (tramo.getFechaHoraInicio() == null) {
-                throw new IllegalStateException("No se puede finalizar un tramo que nunca inició");
-            }
+                if (tramo.getFechaHoraFin() == null) {
+                    tramo.setFechaHoraFin(LocalDateTime.now());
+                }
 
-            if (tramo.getFechaHoraFin() == null) {
-                tramo.setFechaHoraFin(LocalDateTime.now());
-            }
+                tramo.setEstado(EstadoTramo.FINALIZADO);
 
-            tramo.setEstado(EstadoTramo.FINALIZADO);
+                BigDecimal costoFinal;
 
-            BigDecimal costoFinal;
+                if (costoReal != null) {
+                    costoFinal = costoReal;
+                } else {
+                    CamionDTO camionDTO = apiClientService.getCamion(tramo.getPatenteCamion());
 
-            // si el operador manda un costo manual, usarlo
-            if (costoReal != null) {
-                costoFinal = costoReal;
-            } 
-            else {
-                // consumo REAL del camión
-                CamionDTO camionDTO = apiClientService.getCamion(tramo.getPatenteCamion());
+                    BigDecimal consumoReal = camionDTO.getConsumoRealLitrosKm();
+                    BigDecimal precioGasoil = apiClientService.getPrecioGasoil();
 
-                BigDecimal consumoReal = camionDTO.getConsumoRealLitrosKm();
-                BigDecimal precioGasoil = apiClientService.getPrecioGasoil();
+                    costoFinal = tramo.getDistanciaKm()
+                            .multiply(consumoReal)
+                            .multiply(precioGasoil)
+                            .setScale(2, RoundingMode.HALF_UP);
+                }
 
-                costoFinal = tramo.getDistanciaKm()
-                        .multiply(consumoReal)
-                        .multiply(precioGasoil)
-                        .setScale(2, RoundingMode.HALF_UP);
-            }
+                tramo.setCostoReal(costoFinal);
 
-            tramo.setCostoReal(costoFinal);
+                // devolver disponibilidad
+                apiClientService.actualizarDisponibilidadCamion(tramo.getPatenteCamion(), true);
+                break;
 
-            // devolver disponibilidad
-            apiClientService.actualizarDisponibilidadCamion(tramo.getPatenteCamion(), true);
-            break;
             default:
                 throw new IllegalArgumentException("Estado de tramo no soportado: " + nuevoEstadoRaw);
         }
@@ -157,31 +152,31 @@ private final LocalizacionRepository localizacionRepository;
     // =========================
     // CREAR RUTA + TRAMOS
     // =========================
-public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
+    public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
 
-    Long idSolicitud = request.getIdSolicitud();
+        Long idSolicitud = request.getIdSolicitud();
 
-    // 1) Validar que la solicitud exista
-    if (!apiClientService.existeSolicitud(idSolicitud)) {
-        throw new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "La solicitud " + idSolicitud + " no existe en servicio-solicitud"
-        );
-    }
+        // 1) Validar que la solicitud exista
+        if (!apiClientService.existeSolicitud(idSolicitud)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "La solicitud " + idSolicitud + " no existe en servicio-solicitud"
+            );
+        }
 
-    // 2) Traer la solicitud completa (para origen/destino y contenedor)
-    SolicitudDTO solicitudDTO = apiClientService.getSolicitud(idSolicitud);
-    if (solicitudDTO == null ||
-        solicitudDTO.getOrigen() == null ||
-        solicitudDTO.getDestino() == null) {
+        // 2) Traer la solicitud completa
+        SolicitudDTO solicitudDTO = apiClientService.getSolicitud(idSolicitud);
+        if (solicitudDTO == null ||
+                solicitudDTO.getOrigen() == null ||
+                solicitudDTO.getDestino() == null) {
 
-        throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "La solicitud " + idSolicitud + " no tiene origen/destino cargados"
-        );
-    }
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La solicitud " + idSolicitud + " no tiene origen/destino cargados"
+            );
+        }
 
-    // 3) Armar los PuntoRutaDTO para OSRM
+        // 3) Armar los PuntoRutaDTO para OSRM
         PuntoRutaDTO origenDTO = new PuntoRutaDTO();
         origenDTO.setLatitud(solicitudDTO.getOrigen().getLatitud());
         origenDTO.setLongitud(solicitudDTO.getOrigen().getLongitud());
@@ -190,43 +185,41 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
         destinoDTO.setLatitud(solicitudDTO.getDestino().getLatitud());
         destinoDTO.setLongitud(solicitudDTO.getDestino().getLongitud());
 
+        // 4) Depósitos intermedios
+        List<Deposito> depositosEnRuta = new ArrayList<>();
 
-    // 4) Armar la lista de depósitos en orden (igual que antes)
-    List<Deposito> depositosEnRuta = new ArrayList<>();
-
-    if (request.getPuntosIntermedios() != null) {
-        for (PuntoRutaDTO p : request.getPuntosIntermedios()) {
-            if (p.getIdDeposito() == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Todos los puntos intermedios deben tener idDeposito (los tramos son solo entre depósitos)"
-                );
-            }
-            Deposito depo = depositoRepository.findById(p.getIdDeposito())
-                    .orElseThrow(() -> new ResponseStatusException(
+        if (request.getPuntosIntermedios() != null) {
+            for (PuntoRutaDTO p : request.getPuntosIntermedios()) {
+                if (p.getIdDeposito() == null) {
+                    throw new ResponseStatusException(
                             HttpStatus.BAD_REQUEST,
-                            "El depósito " + p.getIdDeposito() + " no existe"
-                    ));
+                            "Todos los puntos intermedios deben tener idDeposito (los tramos son solo entre depósitos)"
+                    );
+                }
+                Deposito depo = depositoRepository.findById(p.getIdDeposito())
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "El depósito " + p.getIdDeposito() + " no existe"
+                        ));
 
-            depositosEnRuta.add(depo);
+                depositosEnRuta.add(depo);
+            }
         }
-    }
 
-    int cantidadDepositos = depositosEnRuta.size();
-    int cantidadTramos = (cantidadDepositos == 0) ? 1 : (cantidadDepositos + 1);
+        int cantidadDepositos = depositosEnRuta.size();
+        int cantidadTramos = (cantidadDepositos == 0) ? 1 : (cantidadDepositos + 1);
 
-    // 5) Ver si ya existe Ruta para esa solicitud
-    Ruta ruta = rutaRepository.findByIdSolicitud(idSolicitud).orElse(null);
+        // 5) Ver si ya existe Ruta para esa solicitud
+        Ruta ruta = rutaRepository.findByIdSolicitud(idSolicitud).orElse(null);
 
-    if (ruta != null) {
-        tramoRepository.deleteByRuta(ruta);
-    } else {
-        ruta = new Ruta();
-        ruta.setIdSolicitud(idSolicitud);
-    }
+        if (ruta != null) {
+            tramoRepository.deleteByRuta(ruta);
+        } else {
+            ruta = new Ruta();
+            ruta.setIdSolicitud(idSolicitud);
+        }
 
-    // 6) Setear ORIGEN y DESTINO como Localizacion (mismo id que la solicitud)
-    //    OJO: acá asumo que tu DTO de localización tiene getIdLocalizacion()
+        // 6) Setear ORIGEN y DESTINO como Localizacion
         Localizacion origenLoc = localizacionRepository.findById(
                 solicitudDTO.getOrigen().getIdLocalizacion()
         ).orElseThrow(() -> new RuntimeException("Origen no existe"));
@@ -237,126 +230,30 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
 
         ruta.setOrigen(origenLoc);
         ruta.setDestino(destinoLoc);
+        ruta.setCantidadDepositos(cantidadDepositos);
+        ruta.setCantidadTramos(cantidadTramos);
 
+        ruta = rutaRepository.save(ruta);
 
-    ruta.setCantidadDepositos(cantidadDepositos);
-    ruta.setCantidadTramos(cantidadTramos);
+        // 7) Calcular tramos + costos/tiempos
+        BigDecimal costoTotalEstimado = BigDecimal.ZERO;
+        BigDecimal tiempoTotalMin = BigDecimal.ZERO;
 
-    ruta = rutaRepository.save(ruta);
-
-    // 7) Calcular tramos + costos/tiempos (igual que ya tenías)
-
-    BigDecimal costoTotalEstimado = BigDecimal.ZERO;
-    BigDecimal tiempoTotalMin = BigDecimal.ZERO;
-
-    // CASO A: SIN DEPÓSITOS
-    if (depositosEnRuta.isEmpty()) {
-
-        OsrmRouteDTO rutaOsrm = consultarDistanciaOsrm(
-                origenDTO.getLatitud(),
-                origenDTO.getLongitud(),
-                destinoDTO.getLatitud(),
-                destinoDTO.getLongitud()
-        );
-
-        double distanciaMetros = rutaOsrm.getDistance();
-        double duracionSegundos = rutaOsrm.getDuration();
-
-        BigDecimal distanciaKm = BigDecimal
-                .valueOf(distanciaMetros / 1000.0)
-                .setScale(3, RoundingMode.HALF_UP);
-
-        BigDecimal duracionMin = BigDecimal
-                .valueOf(duracionSegundos / 60.0)
-                .setScale(1, RoundingMode.HALF_UP);
-
-        BigDecimal costoTramo = calcularCostoAproximado(distanciaKm);
-
-        costoTotalEstimado = costoTotalEstimado.add(costoTramo);
-        tiempoTotalMin = tiempoTotalMin.add(duracionMin);
-
-        Tramo tramo = new Tramo();
-        tramo.setRuta(ruta);
-        tramo.setDepositoOrigen(null);
-        tramo.setDepositoDestino(null);
-        tramo.setTipo("origen-destino");
-        tramo.setEstado(EstadoTramo.ESTIMADO);
-        tramo.setCostoAproximado(costoTramo);
-        tramo.setCostoReal(null);
-        tramo.setPatenteCamion(null);
-        tramo.setTiempoEstimado(duracionMin);
-        tramo.setDescripcionOrigen(solicitudDTO.getOrigen().getDescripcion());
-        tramo.setDescripcionDestino(solicitudDTO.getDestino().getDescripcion());
-        tramo.setDistanciaKm(distanciaKm);
-
-        tramoRepository.save(tramo);
-
-    } else {
-        // CASO B: CON DEPÓSITOS
-
-        // B1) ORIGEN -> PRIMER DEPÓSITO
-        Deposito primerDepo = depositosEnRuta.get(0);
-
-        OsrmRouteDTO rutaOsrm1 = consultarDistanciaOsrm(
-                origenDTO.getLatitud(),
-                origenDTO.getLongitud(),
-                primerDepo.getLatitud(),
-                primerDepo.getLongitud()
-        );
-
-        double distM1 = rutaOsrm1.getDistance();
-        double durSeg1 = rutaOsrm1.getDuration();
-
-        BigDecimal distKm1 = BigDecimal
-                .valueOf(distM1 / 1000.0)
-                .setScale(3, RoundingMode.HALF_UP);
-
-        BigDecimal durMin1 = BigDecimal
-                .valueOf(durSeg1 / 60.0)
-                .setScale(1, RoundingMode.HALF_UP);
-
-        BigDecimal costoTramo1 = calcularCostoAproximado(distKm1);
-
-        costoTotalEstimado = costoTotalEstimado.add(costoTramo1);
-        tiempoTotalMin = tiempoTotalMin.add(durMin1);
-
-        Tramo tramo1 = new Tramo();
-        tramo1.setRuta(ruta);
-        tramo1.setDepositoOrigen(null);
-        tramo1.setDepositoDestino(primerDepo);
-        tramo1.setTipo("origen-deposito");
-        tramo1.setEstado(EstadoTramo.ESTIMADO);
-        tramo1.setCostoAproximado(costoTramo1);
-        tramo1.setCostoReal(null);
-        tramo1.setPatenteCamion(null);
-        tramo1.setTiempoEstimado(durMin1);
-        tramo1.setDescripcionOrigen(solicitudDTO.getOrigen().getDescripcion());
-        tramo1.setDescripcionDestino(primerDepo.getNombre());
-        tramo1.setDistanciaKm(distKm1);
-
-        tramoRepository.save(tramo1);
-
-        // B2) DEPÓSITO -> DEPÓSITO
-        for (int i = 0; i < depositosEnRuta.size() - 1; i++) {
-            Deposito depOrigen = depositosEnRuta.get(i);
-            Deposito depDestino = depositosEnRuta.get(i + 1);
+        if (depositosEnRuta.isEmpty()) {
 
             OsrmRouteDTO rutaOsrm = consultarDistanciaOsrm(
-                    depOrigen.getLatitud(),
-                    depOrigen.getLongitud(),
-                    depDestino.getLatitud(),
-                    depDestino.getLongitud()
+                    origenDTO.getLatitud(),
+                    origenDTO.getLongitud(),
+                    destinoDTO.getLatitud(),
+                    destinoDTO.getLongitud()
             );
 
-            double distanciaMetros = rutaOsrm.getDistance();
-            double duracionSegundos = rutaOsrm.getDuration();
-
             BigDecimal distanciaKm = BigDecimal
-                    .valueOf(distanciaMetros / 1000.0)
+                    .valueOf(rutaOsrm.getDistance() / 1000.0)
                     .setScale(3, RoundingMode.HALF_UP);
 
             BigDecimal duracionMin = BigDecimal
-                    .valueOf(duracionSegundos / 60.0)
+                    .valueOf(rutaOsrm.getDuration() / 60.0)
                     .setScale(1, RoundingMode.HALF_UP);
 
             BigDecimal costoTramo = calcularCostoAproximado(distanciaKm);
@@ -364,84 +261,185 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
             costoTotalEstimado = costoTotalEstimado.add(costoTramo);
             tiempoTotalMin = tiempoTotalMin.add(duracionMin);
 
-            Tramo tramo = new Tramo();
-            tramo.setRuta(ruta);
-            tramo.setDepositoOrigen(depOrigen);
-            tramo.setDepositoDestino(depDestino);
-            tramo.setTipo("deposito-deposito");
-            tramo.setEstado(EstadoTramo.ESTIMADO);
-            tramo.setCostoAproximado(costoTramo);
-            tramo.setCostoReal(null);
-            tramo.setPatenteCamion(null);
-            tramo.setTiempoEstimado(duracionMin);
-            tramo.setDescripcionOrigen(depOrigen.getNombre());
-            tramo.setDescripcionDestino(depDestino.getNombre());
-            tramo.setDistanciaKm(distanciaKm);
+            Tramo tramo = crearTramo(
+                    ruta,
+                    null,
+                    null,
+                    "origen-destino",
+                    solicitudDTO.getOrigen().getDescripcion(),
+                    solicitudDTO.getDestino().getDescripcion(),
+                    distanciaKm,
+                    duracionMin,
+                    costoTramo
+            );
+
             tramoRepository.save(tramo);
+
+        } else {
+            // ORIGEN -> PRIMER DEPÓSITO
+            Deposito primerDepo = depositosEnRuta.get(0);
+
+            OsrmRouteDTO rutaOsrm1 = consultarDistanciaOsrm(
+                    origenDTO.getLatitud(),
+                    origenDTO.getLongitud(),
+                    primerDepo.getLatitud(),
+                    primerDepo.getLongitud()
+            );
+
+            BigDecimal distKm1 = BigDecimal
+                    .valueOf(rutaOsrm1.getDistance() / 1000.0)
+                    .setScale(3, RoundingMode.HALF_UP);
+
+            BigDecimal durMin1 = BigDecimal
+                    .valueOf(rutaOsrm1.getDuration() / 60.0)
+                    .setScale(1, RoundingMode.HALF_UP);
+
+            BigDecimal costoTramo1 = calcularCostoAproximado(distKm1);
+
+            costoTotalEstimado = costoTotalEstimado.add(costoTramo1);
+            tiempoTotalMin = tiempoTotalMin.add(durMin1);
+
+            Tramo tramo1 = crearTramo(
+                    ruta,
+                    null,
+                    primerDepo,
+                    "origen-deposito",
+                    solicitudDTO.getOrigen().getDescripcion(),
+                    primerDepo.getNombre(),
+                    distKm1,
+                    durMin1,
+                    costoTramo1
+            );
+            tramoRepository.save(tramo1);
+
+            // DEPÓSITO → DEPÓSITO
+            for (int i = 0; i < depositosEnRuta.size() - 1; i++) {
+                Deposito depOrigen = depositosEnRuta.get(i);
+                Deposito depDestino = depositosEnRuta.get(i + 1);
+
+                OsrmRouteDTO rutaOsrm = consultarDistanciaOsrm(
+                        depOrigen.getLatitud(),
+                        depOrigen.getLongitud(),
+                        depDestino.getLatitud(),
+                        depDestino.getLongitud()
+                );
+
+                BigDecimal distanciaKm = BigDecimal
+                        .valueOf(rutaOsrm.getDistance() / 1000.0)
+                        .setScale(3, RoundingMode.HALF_UP);
+
+                BigDecimal duracionMin = BigDecimal
+                        .valueOf(rutaOsrm.getDuration() / 60.0)
+                        .setScale(1, RoundingMode.HALF_UP);
+
+                BigDecimal costoTramo = calcularCostoAproximado(distanciaKm);
+
+                costoTotalEstimado = costoTotalEstimado.add(costoTramo);
+                tiempoTotalMin = tiempoTotalMin.add(duracionMin);
+
+                Tramo tramo = crearTramo(
+                        ruta,
+                        depOrigen,
+                        depDestino,
+                        "deposito-deposito",
+                        depOrigen.getNombre(),
+                        depDestino.getNombre(),
+                        distanciaKm,
+                        duracionMin,
+                        costoTramo
+                );
+                tramoRepository.save(tramo);
+            }
+
+            // ÚLTIMO DEPÓSITO → DESTINO
+            Deposito ultimoDepo = depositosEnRuta.get(depositosEnRuta.size() - 1);
+
+            OsrmRouteDTO rutaOsrmLast = consultarDistanciaOsrm(
+                    ultimoDepo.getLatitud(),
+                    ultimoDepo.getLongitud(),
+                    destinoDTO.getLatitud(),
+                    destinoDTO.getLongitud()
+            );
+
+            BigDecimal distKmLast = BigDecimal
+                    .valueOf(rutaOsrmLast.getDistance() / 1000.0)
+                    .setScale(3, RoundingMode.HALF_UP);
+
+            BigDecimal durMinLast = BigDecimal
+                    .valueOf(rutaOsrmLast.getDuration() / 60.0)
+                    .setScale(1, RoundingMode.HALF_UP);
+
+            BigDecimal costoTramoLast = calcularCostoAproximado(distKmLast);
+
+            costoTotalEstimado = costoTotalEstimado.add(costoTramoLast);
+            tiempoTotalMin = tiempoTotalMin.add(durMinLast);
+
+            Tramo tramoLast = crearTramo(
+                    ruta,
+                    ultimoDepo,
+                    null,
+                    "deposito-destino",
+                    ultimoDepo.getNombre(),
+                    solicitudDTO.getDestino().getDescripcion(),
+                    distKmLast,
+                    durMinLast,
+                    costoTramoLast
+            );
+            tramoRepository.save(tramoLast);
         }
 
-        // B3) ÚLTIMO DEPÓSITO -> DESTINO
-        Deposito ultimoDepo = depositosEnRuta.get(depositosEnRuta.size() - 1);
+        // 8) Tarifa base contenedor
+        ContenedorDTO contenedorDTO = obtenerContenedorDeSolicitud(idSolicitud);
+        BigDecimal tarifaBaseContenedor = calcularPrecioBaseContenedor(contenedorDTO);
 
-        OsrmRouteDTO rutaOsrmLast = consultarDistanciaOsrm(
-                ultimoDepo.getLatitud(),
-                ultimoDepo.getLongitud(),
-                destinoDTO.getLatitud(),
-                destinoDTO.getLongitud()
+        costoTotalEstimado = costoTotalEstimado.add(tarifaBaseContenedor);
+
+        // 9) Actualizar estimación en servicio-solicitud
+        apiClientService.actualizarEstimacionSolicitud(
+                idSolicitud,
+                costoTotalEstimado,
+                tiempoTotalMin.longValue()
         );
 
-        double distMLast = rutaOsrmLast.getDistance();
-        double durSegLast = rutaOsrmLast.getDuration();
+        // 10) Cargar tramos en la entidad para devolverlos
+        List<Tramo> tramosRuta = tramoRepository.findByRutaOrderByIdTramoAsc(ruta);
+        ruta.setTramos(tramosRuta);
 
-        BigDecimal distKmLast = BigDecimal
-                .valueOf(distMLast / 1000.0)
-                .setScale(3, RoundingMode.HALF_UP);
-
-        BigDecimal durMinLast = BigDecimal
-                .valueOf(durSegLast / 60.0)
-                .setScale(1, RoundingMode.HALF_UP);
-
-        BigDecimal costoTramoLast = calcularCostoAproximado(distKmLast);
-
-        costoTotalEstimado = costoTotalEstimado.add(costoTramoLast);
-        tiempoTotalMin = tiempoTotalMin.add(durMinLast);
-
-        Tramo tramoLast = new Tramo();
-        tramoLast.setRuta(ruta);
-        tramoLast.setDepositoOrigen(ultimoDepo);
-        tramoLast.setDepositoDestino(null);
-        tramoLast.setTipo("deposito-destino");
-        tramoLast.setEstado(EstadoTramo.ESTIMADO);
-        tramoLast.setCostoAproximado(costoTramoLast);
-        tramoLast.setCostoReal(null);
-        tramoLast.setPatenteCamion(null);
-        tramoLast.setTiempoEstimado(durMinLast);
-        tramoLast.setDescripcionOrigen(ultimoDepo.getNombre());
-        tramoLast.setDescripcionDestino(solicitudDTO.getDestino().getDescripcion());
-        tramoLast.setDistanciaKm(distKmLast);
-
-        tramoRepository.save(tramoLast);
+        return ruta;
     }
 
-    // 8) Tarifa base contenedor
-    ContenedorDTO contenedorDTO = obtenerContenedorDeSolicitud(idSolicitud);
-    BigDecimal tarifaBaseContenedor = calcularPrecioBaseContenedor(contenedorDTO);
+    // =========================
+    // HELPER: CREAR TRAMO ESTIMADO
+    // =========================
+    private Tramo crearTramo(
+            Ruta ruta,
+            Deposito depositoOrigen,
+            Deposito depositoDestino,
+            String tipo,
+            String descripcionOrigen,
+            String descripcionDestino,
+            BigDecimal distanciaKm,
+            BigDecimal duracionMin,
+            BigDecimal costoTramo
+    ) {
+        Tramo tramo = new Tramo();
+        tramo.setRuta(ruta);
+        tramo.setDepositoOrigen(depositoOrigen);
+        tramo.setDepositoDestino(depositoDestino);
+        tramo.setTipo(tipo);
 
-    costoTotalEstimado = costoTotalEstimado.add(tarifaBaseContenedor);
+        tramo.setEstado(EstadoTramo.ESTIMADO);
+        tramo.setCostoAproximado(costoTramo);
+        tramo.setCostoReal(null);
+        tramo.setPatenteCamion(null);
 
-    // 9) Actualizar estimación en servicio-solicitud
-    apiClientService.actualizarEstimacionSolicitud(
-            idSolicitud,
-            costoTotalEstimado,
-            tiempoTotalMin.longValue()
-    );
+        tramo.setTiempoEstimado(duracionMin);
+        tramo.setDescripcionOrigen(descripcionOrigen);
+        tramo.setDescripcionDestino(descripcionDestino);
+        tramo.setDistanciaKm(distanciaKm);
 
-    // 10) Cargar tramos en la entidad para devolverlos
-    List<Tramo> tramosRuta = tramoRepository.findByRutaOrderByIdTramoAsc(ruta);
-    ruta.setTramos(tramosRuta);
-
-    return ruta;
-}
+        return tramo;
+    }
 
     // =========================
     // OSRM
@@ -452,7 +450,6 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
             BigDecimal latitudDestino,
             BigDecimal longitudDestino
     ) {
-        // OSRM usa LON,LAT
         String coords = String.format(
                 "%s,%s;%s,%s",
                 longitudOrigen.toPlainString(),
@@ -487,9 +484,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
         List<String> descripcionTramos = new ArrayList<>();
         List<TramoAlternativoDTO> tramosDetalle = new ArrayList<>();
 
-        // ============================================================
         // SIN DEPÓSITOS
-        // ============================================================
         if (depositosEnRuta == null || depositosEnRuta.isEmpty()) {
 
             OsrmRouteDTO rutaOsrm = consultarDistanciaOsrm(
@@ -541,9 +536,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
             return dto;
         }
 
-        // ============================================================
         // CON DEPÓSITOS
-        // ============================================================
 
         // ORIGEN → PRIMER DEPÓSITO
         Deposito primerDepo = depositosEnRuta.get(0);
@@ -651,9 +644,6 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
         tramoLast.setTiempoMin(durMinLast);
         tramosDetalle.add(tramoLast);
 
-        // ============================================================
-        // DTO FINAL
-        // ============================================================
         RutaAlternativaDTO dto = new RutaAlternativaDTO();
         dto.setNombre(nombreAlternativa);
         dto.setCostoEstimado(costoTotalEstimado);
@@ -666,115 +656,104 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
         return dto;
     }
 
-public List<RutaAlternativaDTO> generarRutasAlternativas(RutasAlternativasRequestDTO request) {
+    public List<RutaAlternativaDTO> generarRutasAlternativas(RutasAlternativasRequestDTO request) {
 
-    Long idSolicitud = request.getIdSolicitud();
+        Long idSolicitud = request.getIdSolicitud();
 
-    if (!apiClientService.existeSolicitud(idSolicitud)) {
-        throw new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "La solicitud " + idSolicitud + " no existe en servicio-solicitud"
-        );
-    }
-
-    // Traer solicitud para obtener origen/destino
-    SolicitudDTO solicitudDTO = apiClientService.getSolicitud(idSolicitud);
-    if (solicitudDTO == null ||
-        solicitudDTO.getOrigen() == null ||
-        solicitudDTO.getDestino() == null) {
-        throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "La solicitud " + idSolicitud + " no tiene origen/destino cargados"
-        );
-    }
-
-    // Origen + destino en DTO
-    PuntoRutaDTO origenDTO = new PuntoRutaDTO();
-    origenDTO.setLatitud(solicitudDTO.getOrigen().getLatitud());
-    origenDTO.setLongitud(solicitudDTO.getOrigen().getLongitud());
-
-    PuntoRutaDTO destinoDTO = new PuntoRutaDTO();
-    destinoDTO.setLatitud(solicitudDTO.getDestino().getLatitud());
-    destinoDTO.setLongitud(solicitudDTO.getDestino().getLongitud());
-
-    // Las descripciones que vienen de Solicitud
-    String descripcionOrigen = solicitudDTO.getOrigen().getDescripcion();
-    String descripcionDestino = solicitudDTO.getDestino().getDescripcion();
-
-    List<RutaAlternativaDTO> alternativas = new ArrayList<>();
-
-    // ===========================================================
-    // 1) Ruta DIRECTA
-    // ===========================================================
-    RutaAlternativaDTO directa = calcularRutaAlternativa(
-            origenDTO,
-            destinoDTO,
-            new ArrayList<>(),
-            "Ruta directa",
-            descripcionOrigen,
-            descripcionDestino
-    );
-    alternativas.add(directa);
-
-    // ===========================================================
-    // 2) Rutas con DEPÓSITOS
-    // ===========================================================
-    if (request.getAlternativasDepositos() != null) {
-
-        for (List<Long> idsDepositos : request.getAlternativasDepositos()) {
-
-            if (idsDepositos == null || idsDepositos.isEmpty()) {
-                continue;
-            }
-
-            // Cargar cada depósito
-            List<Deposito> depositosEnRuta = new ArrayList<>();
-            for (Long idDepo : idsDepositos) {
-                Deposito depo = depositoRepository.findById(idDepo)
-                        .orElseThrow(() -> new ResponseStatusException(
-                                HttpStatus.BAD_REQUEST,
-                                "El depósito " + idDepo + " no existe"
-                        ));
-                depositosEnRuta.add(depo);
-            }
-
-            String nombre = "Depósitos " + idsDepositos;
-
-            RutaAlternativaDTO alternativa = calcularRutaAlternativa(
-                    origenDTO,
-                    destinoDTO,
-                    depositosEnRuta,
-                    nombre,
-                    descripcionOrigen,
-                    descripcionDestino
+        if (!apiClientService.existeSolicitud(idSolicitud)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "La solicitud " + idSolicitud + " no existe en servicio-solicitud"
             );
-
-            alternativas.add(alternativa);
         }
+
+        SolicitudDTO solicitudDTO = apiClientService.getSolicitud(idSolicitud);
+        if (solicitudDTO == null ||
+                solicitudDTO.getOrigen() == null ||
+                solicitudDTO.getDestino() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La solicitud " + idSolicitud + " no tiene origen/destino cargados"
+            );
+        }
+
+        PuntoRutaDTO origenDTO = new PuntoRutaDTO();
+        origenDTO.setLatitud(solicitudDTO.getOrigen().getLatitud());
+        origenDTO.setLongitud(solicitudDTO.getOrigen().getLongitud());
+
+        PuntoRutaDTO destinoDTO = new PuntoRutaDTO();
+        destinoDTO.setLatitud(solicitudDTO.getDestino().getLatitud());
+        destinoDTO.setLongitud(solicitudDTO.getDestino().getLongitud());
+
+        String descripcionOrigen = solicitudDTO.getOrigen().getDescripcion();
+        String descripcionDestino = solicitudDTO.getDestino().getDescripcion();
+
+        List<RutaAlternativaDTO> alternativas = new ArrayList<>();
+
+        // Ruta directa
+        RutaAlternativaDTO directa = calcularRutaAlternativa(
+                origenDTO,
+                destinoDTO,
+                new ArrayList<>(),
+                "Ruta directa",
+                descripcionOrigen,
+                descripcionDestino
+        );
+        alternativas.add(directa);
+
+        // Rutas con depósitos
+        if (request.getAlternativasDepositos() != null) {
+
+            for (List<Long> idsDepositos : request.getAlternativasDepositos()) {
+
+                if (idsDepositos == null || idsDepositos.isEmpty()) {
+                    continue;
+                }
+
+                List<Deposito> depositosEnRuta = new ArrayList<>();
+                for (Long idDepo : idsDepositos) {
+                    Deposito depo = depositoRepository.findById(idDepo)
+                            .orElseThrow(() -> new ResponseStatusException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "El depósito " + idDepo + " no existe"
+                            ));
+                    depositosEnRuta.add(depo);
+                }
+
+                String nombre = "Depósitos " + idsDepositos;
+
+                RutaAlternativaDTO alternativa = calcularRutaAlternativa(
+                        origenDTO,
+                        destinoDTO,
+                        depositosEnRuta,
+                        nombre,
+                        descripcionOrigen,
+                        descripcionDestino
+                );
+
+                alternativas.add(alternativa);
+            }
+        }
+
+        alternativas.sort(Comparator.comparing(RutaAlternativaDTO::getCostoEstimado));
+
+        return alternativas;
     }
-
-    // Ordenarlas por costo estimado ascendente
-    alternativas.sort(Comparator.comparing(RutaAlternativaDTO::getCostoEstimado));
-
-    return alternativas;
-}
 
     // =========================
     // COSTO APROXIMADO
     // =========================
-private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
+    private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
 
-    // Consumo genérico
-    BigDecimal consumoPromedio = new BigDecimal("0.35");
+        BigDecimal consumoPromedio = new BigDecimal("0.35");
 
-    // Precio del gasoil desde transporte
-    BigDecimal precioGasoil = apiClientService.getPrecioGasoil();
+        BigDecimal precioGasoil = apiClientService.getPrecioGasoil();
 
-    return distanciaKm
-            .multiply(consumoPromedio)
-            .multiply(precioGasoil)
-            .setScale(2, RoundingMode.HALF_UP);
-}
+        return distanciaKm
+                .multiply(consumoPromedio)
+                .multiply(precioGasoil)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
 
     // =========================
     // ASIGNAR CAMIÓN
@@ -783,7 +762,6 @@ private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new IllegalArgumentException("Tramo " + idTramo + " no existe."));
 
-        // 1) Camión
         CamionDTO camionDTO = apiClientService.getCamion(patenteCamion);
         if (camionDTO == null) {
             throw new IllegalArgumentException("El camión con patente " + patenteCamion + " no existe.");
@@ -793,7 +771,6 @@ private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
             throw new IllegalStateException("El camión " + patenteCamion + " no está disponible.");
         }
 
-        // 2) Solicitud asociada
         Ruta ruta = tramo.getRuta();
         if (ruta == null || ruta.getIdSolicitud() == null) {
             throw new IllegalStateException("El tramo no tiene ruta/solicitud asociada.");
@@ -813,14 +790,12 @@ private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
 
         Long idContenedor = solicitudDTO.getIdContenedor();
 
-        // 3) Contenedor
         ContenedorDTO contenedorDTO = apiClientService.getContenedor(idContenedor);
         if (contenedorDTO == null) {
             throw new IllegalStateException("No se pudo obtener el contenedor " + idContenedor
                     + " desde servicio-contenedor.");
         }
 
-        // 4) Validaciones
         if (contenedorDTO.getPeso() != null && camionDTO.getCapacidadPeso() != null &&
                 contenedorDTO.getPeso().compareTo(camionDTO.getCapacidadPeso()) > 0) {
 
@@ -837,7 +812,6 @@ private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
                             + camionDTO.getCapacidadVolumen() + " m3).");
         }
 
-        // 5) Asignar
         tramo.setPatenteCamion(patenteCamion);
         tramo.setEstado(EstadoTramo.ASIGNADO);
 
@@ -876,7 +850,6 @@ private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
             return;
         }
 
-        // 1) Costo por tramos
         BigDecimal costoTramos = BigDecimal.ZERO;
         for (Tramo t : tramos) {
             if (t.getCostoReal() != null) {
@@ -886,10 +859,8 @@ private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
             }
         }
 
-        // 2) Costo por estadías
         BigDecimal costoEstadias = calcularCostoEstadiasPorDia(tramos);
 
-        // 3) Contenedor para tarifa base
         ContenedorDTO contenedorDTO = null;
         try {
             SolicitudDTO solicitud = apiClientService.getSolicitud(idSolicitud);
@@ -904,15 +875,12 @@ private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
 
         BigDecimal tarifaBaseContenedor = calcularPrecioBaseContenedor(contenedorDTO);
 
-        // 4) Costo final total
         BigDecimal costoFinal = costoTramos
                 .add(costoEstadias)
                 .add(tarifaBaseContenedor);
 
-        // 5) Tiempo real total
         Long tiempoRealMin = calcularTiempoRealMinutos(tramos);
 
-        // 6) Finalizar solicitud
         actualizarSolicitudComoFinalizada(idSolicitud, costoFinal, tiempoRealMin);
     }
 
