@@ -18,6 +18,7 @@ import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 
 
@@ -276,7 +277,6 @@ public SeguimientoSolicitudDTO obtenerSeguimiento(Long numero) {
     dto.setTiempoReal(solicitud.getTiempoReal());
 
     // --- Pedir la ruta al micro de logística ---
-    // Ej: http://servicio-logistica:8084/api/logistica/rutas/solicitud/3
     String urlRuta = logisticaBaseUrl + "/rutas/solicitud/" + numero;
 
     RutaLogisticaDTO ruta;
@@ -322,6 +322,7 @@ public SeguimientoSolicitudDTO obtenerSeguimiento(Long numero) {
 
                 return tDto;
             })
+            .sorted(Comparator.comparing(TramoSeguimientoDTO::getIdTramo))  
             .collect(Collectors.toList());
 
     dto.setTramos(tramosSeguimiento);
