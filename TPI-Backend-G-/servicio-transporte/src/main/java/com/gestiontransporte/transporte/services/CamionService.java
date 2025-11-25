@@ -97,4 +97,12 @@ public class CamionService {
             })
             .orElse(false); // No se encontró el camión
     }
+
+    public Camion cambiarDisponibilidad(String patente, Boolean disponible) {
+        Camion c = camionRepository.findById(patente)
+            .orElseThrow(() -> new RuntimeException("No existe el camión " + patente));
+
+        c.setDisponibilidad(disponible);
+        return camionRepository.save(c);
+    }
 }

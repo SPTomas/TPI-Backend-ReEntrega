@@ -37,9 +37,8 @@ public class Camion {
     @Column(name = "disponibilidad")
     private Boolean disponibilidad; //
 
-    @Column(name = "costos_km", precision = 10, scale = 2) // ej. 50.50 $/km
-    private BigDecimal costos; //
-
+    @Column(name = "consumo_real_litros_km", precision = 10, scale = 3)
+    private BigDecimal consumoRealLitrosKm;
 
     @Column(name = "estado")
     private String estado;

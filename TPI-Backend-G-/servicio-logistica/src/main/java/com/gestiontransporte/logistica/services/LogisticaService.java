@@ -70,26 +70,73 @@ private final LocalizacionRepository localizacionRepository;
 
         switch (nuevoEstado) {
             case EN_TRASLADO:
+
+                if (tramo.getPatenteCamion() == null) {
+                    throw new IllegalStateException("El tramo no tiene camión asignado.");
+                }
+
+                // ⚠️ Traemos el camión desde transporte
+                CamionDTO camion = apiClientService.getCamion(tramo.getPatenteCamion());
+                if (camion == null) {
+                    throw new IllegalStateException("No se pudo obtener el camión desde servicio-transporte.");
+                }
+
+                // Si no está disponible → NO PERMITIR INICIO
+                if (Boolean.FALSE.equals(camion.getDisponibilidad())) {
+                    throw new IllegalStateException(
+                        "El camión " + camion.getPatente() + " no está disponible para iniciar este tramo."
+                    );
+                }
+
+                // ✔ Si está disponible, iniciar tramo
                 if (tramo.getFechaHoraInicio() == null) {
                     tramo.setFechaHoraInicio(LocalDateTime.now());
                 }
+
                 tramo.setEstado(EstadoTramo.EN_TRASLADO);
+
+                // 🔒 Bloquear el camión
+                apiClientService.actualizarDisponibilidadCamion(tramo.getPatenteCamion(), false);
+
                 break;
 
-            case FINALIZADO:
-                if (tramo.getFechaHoraInicio() == null) {
-                    throw new IllegalStateException("No se puede finalizar un tramo que nunca inició");
-                }
-                if (tramo.getFechaHoraFin() == null) {
-                    tramo.setFechaHoraFin(LocalDateTime.now());
-                }
-                tramo.setEstado(EstadoTramo.FINALIZADO);
 
-                if (costoReal != null) {
-                    tramo.setCostoReal(costoReal);
-                }
-                break;
+        case FINALIZADO:
 
+            if (tramo.getFechaHoraInicio() == null) {
+                throw new IllegalStateException("No se puede finalizar un tramo que nunca inició");
+            }
+
+            if (tramo.getFechaHoraFin() == null) {
+                tramo.setFechaHoraFin(LocalDateTime.now());
+            }
+
+            tramo.setEstado(EstadoTramo.FINALIZADO);
+
+            BigDecimal costoFinal;
+
+            // si el operador manda un costo manual, usarlo
+            if (costoReal != null) {
+                costoFinal = costoReal;
+            } 
+            else {
+                // consumo REAL del camión
+                CamionDTO camionDTO = apiClientService.getCamion(tramo.getPatenteCamion());
+
+                BigDecimal consumoReal = camionDTO.getConsumoRealLitrosKm();
+                BigDecimal precioGasoil = apiClientService.getPrecioGasoil();
+
+                costoFinal = tramo.getDistanciaKm()
+                        .multiply(consumoReal)
+                        .multiply(precioGasoil)
+                        .setScale(2, RoundingMode.HALF_UP);
+            }
+
+            tramo.setCostoReal(costoFinal);
+
+            // devolver disponibilidad
+            apiClientService.actualizarDisponibilidadCamion(tramo.getPatenteCamion(), true);
+            break;
             default:
                 throw new IllegalArgumentException("Estado de tramo no soportado: " + nuevoEstadoRaw);
         }
@@ -223,7 +270,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
                 .valueOf(duracionSegundos / 60.0)
                 .setScale(1, RoundingMode.HALF_UP);
 
-        BigDecimal costoTramo = calcularCostoAproximado(distanciaKm, null);
+        BigDecimal costoTramo = calcularCostoAproximado(distanciaKm);
 
         costoTotalEstimado = costoTotalEstimado.add(costoTramo);
         tiempoTotalMin = tiempoTotalMin.add(duracionMin);
@@ -240,6 +287,8 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
         tramo.setTiempoEstimado(duracionMin);
         tramo.setDescripcionOrigen(solicitudDTO.getOrigen().getDescripcion());
         tramo.setDescripcionDestino(solicitudDTO.getDestino().getDescripcion());
+        tramo.setDistanciaKm(distanciaKm);
+
         tramoRepository.save(tramo);
 
     } else {
@@ -266,7 +315,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
                 .valueOf(durSeg1 / 60.0)
                 .setScale(1, RoundingMode.HALF_UP);
 
-        BigDecimal costoTramo1 = calcularCostoAproximado(distKm1, null);
+        BigDecimal costoTramo1 = calcularCostoAproximado(distKm1);
 
         costoTotalEstimado = costoTotalEstimado.add(costoTramo1);
         tiempoTotalMin = tiempoTotalMin.add(durMin1);
@@ -283,6 +332,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
         tramo1.setTiempoEstimado(durMin1);
         tramo1.setDescripcionOrigen(solicitudDTO.getOrigen().getDescripcion());
         tramo1.setDescripcionDestino(primerDepo.getNombre());
+        tramo1.setDistanciaKm(distKm1);
 
         tramoRepository.save(tramo1);
 
@@ -309,7 +359,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
                     .valueOf(duracionSegundos / 60.0)
                     .setScale(1, RoundingMode.HALF_UP);
 
-            BigDecimal costoTramo = calcularCostoAproximado(distanciaKm, null);
+            BigDecimal costoTramo = calcularCostoAproximado(distanciaKm);
 
             costoTotalEstimado = costoTotalEstimado.add(costoTramo);
             tiempoTotalMin = tiempoTotalMin.add(duracionMin);
@@ -326,6 +376,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
             tramo.setTiempoEstimado(duracionMin);
             tramo.setDescripcionOrigen(depOrigen.getNombre());
             tramo.setDescripcionDestino(depDestino.getNombre());
+            tramo.setDistanciaKm(distanciaKm);
             tramoRepository.save(tramo);
         }
 
@@ -350,7 +401,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
                 .valueOf(durSegLast / 60.0)
                 .setScale(1, RoundingMode.HALF_UP);
 
-        BigDecimal costoTramoLast = calcularCostoAproximado(distKmLast, null);
+        BigDecimal costoTramoLast = calcularCostoAproximado(distKmLast);
 
         costoTotalEstimado = costoTotalEstimado.add(costoTramoLast);
         tiempoTotalMin = tiempoTotalMin.add(durMinLast);
@@ -367,6 +418,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
         tramoLast.setTiempoEstimado(durMinLast);
         tramoLast.setDescripcionOrigen(ultimoDepo.getNombre());
         tramoLast.setDescripcionDestino(solicitudDTO.getDestino().getDescripcion());
+        tramoLast.setDistanciaKm(distKmLast);
 
         tramoRepository.save(tramoLast);
     }
@@ -455,7 +507,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
                     .valueOf(rutaOsrm.getDuration() / 60.0)
                     .setScale(1, RoundingMode.HALF_UP);
 
-            BigDecimal costoTramo = calcularCostoAproximado(distanciaKm, null);
+            BigDecimal costoTramo = calcularCostoAproximado(distanciaKm);
 
             costoTotalEstimado = costoTotalEstimado.add(costoTramo);
             tiempoTotalMin = tiempoTotalMin.add(duracionMin);
@@ -505,7 +557,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
 
         BigDecimal distKm1 = BigDecimal.valueOf(rutaOsrm1.getDistance() / 1000.0).setScale(3, RoundingMode.HALF_UP);
         BigDecimal durMin1 = BigDecimal.valueOf(rutaOsrm1.getDuration() / 60.0).setScale(1, RoundingMode.HALF_UP);
-        BigDecimal costoTramo1 = calcularCostoAproximado(distKm1, null);
+        BigDecimal costoTramo1 = calcularCostoAproximado(distKm1);
 
         costoTotalEstimado = costoTotalEstimado.add(costoTramo1);
         tiempoTotalMin = tiempoTotalMin.add(durMin1);
@@ -544,7 +596,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
                     .valueOf(rutaOsrm.getDuration() / 60.0)
                     .setScale(1, RoundingMode.HALF_UP);
 
-            BigDecimal costoTramo = calcularCostoAproximado(distanciaKm, null);
+            BigDecimal costoTramo = calcularCostoAproximado(distanciaKm);
 
             costoTotalEstimado = costoTotalEstimado.add(costoTramo);
             tiempoTotalMin = tiempoTotalMin.add(duracionMin);
@@ -578,7 +630,7 @@ public Ruta crearRutaParaSolicitud(CrearRutaRequestDTO request) {
 
         BigDecimal distKmLast = BigDecimal.valueOf(rutaOsrmLast.getDistance() / 1000.0).setScale(3, RoundingMode.HALF_UP);
         BigDecimal durMinLast = BigDecimal.valueOf(rutaOsrmLast.getDuration() / 60.0).setScale(1, RoundingMode.HALF_UP);
-        BigDecimal costoTramoLast = calcularCostoAproximado(distKmLast, null);
+        BigDecimal costoTramoLast = calcularCostoAproximado(distKmLast);
 
         costoTotalEstimado = costoTotalEstimado.add(costoTramoLast);
         tiempoTotalMin = tiempoTotalMin.add(durMinLast);
@@ -710,18 +762,19 @@ public List<RutaAlternativaDTO> generarRutasAlternativas(RutasAlternativasReques
     // =========================
     // COSTO APROXIMADO
     // =========================
-    private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm, CamionDTO camionDTO) {
-        BigDecimal costoPorKm;
+private BigDecimal calcularCostoAproximado(BigDecimal distanciaKm) {
 
-        if (camionDTO != null && camionDTO.getCostos() != null) {
-            costoPorKm = camionDTO.getCostos();
-        } else {
-            costoPorKm = BigDecimal.valueOf(1000); // valor base
-        }
+    // Consumo genérico
+    BigDecimal consumoPromedio = new BigDecimal("0.35");
 
-        return distanciaKm.multiply(costoPorKm)
-                .setScale(2, RoundingMode.HALF_UP);
-    }
+    // Precio del gasoil desde transporte
+    BigDecimal precioGasoil = apiClientService.getPrecioGasoil();
+
+    return distanciaKm
+            .multiply(consumoPromedio)
+            .multiply(precioGasoil)
+            .setScale(2, RoundingMode.HALF_UP);
+}
 
     // =========================
     // ASIGNAR CAMIÓN

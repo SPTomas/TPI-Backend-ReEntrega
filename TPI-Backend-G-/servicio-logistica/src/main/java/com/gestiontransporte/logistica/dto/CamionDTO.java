@@ -10,5 +10,5 @@ public class CamionDTO {
     private BigDecimal capacidadPeso;
     private BigDecimal capacidadVolumen;
     private Boolean disponibilidad;
-    private BigDecimal costos; // Costo por KM
+    private BigDecimal consumoRealLitrosKm;
 }

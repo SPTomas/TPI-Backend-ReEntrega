@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controlador REST que expone los endpoints para gestionar Camiones.
@@ -99,4 +100,20 @@ public class CamionController {
             return ResponseEntity.notFound().build(); // 404 Not Found
         }
     }
+
+        @PatchMapping("/{patente}/disponibilidad")
+    public ResponseEntity<Camion> actualizarDisponibilidad(
+            @PathVariable String patente,
+            @RequestBody Map<String, Boolean> body
+    ) {
+        Boolean disponible = body.get("disponible");
+
+        if (disponible == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Camion camionActualizado = camionService.cambiarDisponibilidad(patente, disponible);
+        return ResponseEntity.ok(camionActualizado);
+    }
+
 }

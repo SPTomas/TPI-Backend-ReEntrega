@@ -69,4 +69,7 @@ public class Tramo {
     @Column(name = "descripcion_destino")
     private String descripcionDestino;    
 
+    @Column(name = "distancia_km", precision = 10, scale = 3)
+    private BigDecimal distanciaKm; 
+
 }
